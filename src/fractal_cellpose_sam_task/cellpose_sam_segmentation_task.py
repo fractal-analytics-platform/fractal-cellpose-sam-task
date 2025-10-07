@@ -4,61 +4,71 @@ import logging
 from typing import Optional
 
 import numpy as np
-from ngio import ChannelSelectionModel, open_ome_zarr_container
+from cellpose import core, io, models
+from ngio import open_ome_zarr_container
 from ngio.experimental.iterators import MaskedSegmentationIterator, SegmentationIterator
 from ngio.images._masked_image import MaskedImage
 from pydantic import validate_call
-from skimage.measure import label
-from skimage.morphology import ball, dilation, disk, opening, remove_small_objects
 
-from fractal_cellpose_sam_task.utils import IteratorConfiguration, MaskingConfiguration
+from fractal_cellpose_sam_task.utils import (
+    AdvancedCellposeParameters,
+    CellposeChannels,
+    IteratorConfiguration,
+    MaskingConfiguration,
+)
 
 
 def segmentation_function(
-    int_img: np.ndarray, threshold: int, min_size: int = 50
+    *,
+    image_data: np.ndarray,
+    model: models.CellposeModel,
+    parameters: AdvancedCellposeParameters,
+    do_3D: bool,
+    anisotropy: Optional[float] = None,
 ) -> np.ndarray:
     """Example segmentation function.
 
     This function will need to be adapted to the specific segmentation method.
 
     Args:
-        int_img (np.ndarray): Input image to be processed
-        threshold (int): Threshold value for binarization
-        min_size (int): Minimum size of objects to keep
+        image_data (np.ndarray): Input image data
+        model (models.CellposeModel): Preloaded Cellpose model.
+        parameters (AdvancedCellposeParameters): Advanced parameters for
+            Cellpose segmentation.
+        do_3D (bool): Whether to perform 3D segmentation.
+        anisotropy (Optional[float]): Anisotropy factor for z-axis scaling.
 
     Returns:
-        label_img (np.ndarray): Labeled image
+        np.ndarray: Segmented image
     """
-    # Thresholding the images
-    binary_img = int_img >= threshold
+    z_axis = 1 if do_3D else None
 
-    # Removing small objects
-    cleaned_img = remove_small_objects(binary_img, min_size=min_size)
-    # Opening to separate touching objects
-    if cleaned_img.ndim == 2:
-        selem = disk(1)
-    else:
-        selem = ball(1)
-    opened_img = opening(cleaned_img, selem)
-
-    # Optional: Dilation to restore object size
-    dilated_img = dilation(opened_img, selem)
-
-    # Labeling the processed image
-    label_img = label(dilated_img, connectivity=1)
-    assert isinstance(label_img, np.ndarray)
-    return label_img.astype("uint32")
+    kwargs = parameters.to_eval_kwargs()
+    if parameters.anisotropy is None:
+        # Replace anisotropy only if not set in parameters
+        kwargs["anisotropy"] = anisotropy
+    masks, _, _ = model.eval(
+        image_data,
+        do_3D=do_3D,
+        z_axis=z_axis,
+        channel_axis=0,
+        **kwargs,
+    )
+    masks = np.expand_dims(masks, axis=0).astype(np.uint32)
+    return masks
 
 
 def load_masked_image(
     ome_zarr,
     masking_configuration: MaskingConfiguration,
+    level_path: Optional[str] = None,
 ) -> MaskedImage:
     """Load a masked image from an OME-Zarr based on the masking configuration.
 
     Args:
         ome_zarr: The OME-Zarr container.
         masking_configuration (MaskingConfiguration): Configuration for masking.
+        level_path (Optional[str]): Optional path to a specific resolution level.
 
     """
     if masking_configuration.mode == "Table Name":
@@ -71,7 +81,9 @@ def load_masked_image(
 
     # Base Iterator with masking
     masked_image = ome_zarr.get_masked_image(
-        masking_label_name=masking_label_name, masking_table_name=masking_table_name
+        masking_label_name=masking_label_name,
+        masking_table_name=masking_table_name,
+        path=level_path,
     )
     return masked_image
 
@@ -82,26 +94,32 @@ def cellpose_sam_segmentation_task(
     # Fractal managed parameters
     zarr_url: str,
     # Segmentation parameters
-    channel: ChannelSelectionModel,
+    channels: CellposeChannels,
     label_name: Optional[str] = None,
-    threshold: int,
-    min_size: int = 50,
+    level_path: Optional[str] = None,
+    # Cellpose parameters
+    advanced_parameters: AdvancedCellposeParameters = AdvancedCellposeParameters(),  # noqa: B008
     # Iteration parameters
     iterator_configuration: Optional[IteratorConfiguration] = None,
+    custom_model: Optional[str] = None,
     overwrite: bool = True,
 ) -> None:
     """Segment an image using a simple thresholding method.
 
     Args:
         zarr_url (str): URL to the OME-Zarr container
-        channel (ChannelSelectionModel): Select the input channel to be used for
-            segmentation.
+        channels (CellposeChannels): Channels to use for segmentation.
         label_name (Optional[str]): Name of the resulting label image. If not provided,
             it will be set to "<channel_identifier>_thresholded".
-        threshold (int): Threshold value to be applied.
-        min_size (int): Minimum size of objects. Smaller objects are filtered out.
+        level_path (Optional[str]): If the OME-Zarr has multiple resolution levels,
+            the level to use can be specified here. If None, the highest resolution
+            level will be used.
+        advanced_parameters (AdvancedCellposeParameters): Advanced parameters
+            for Cellpose segmentation.
         iterator_configuration (Optional[IteratorConfiguration]): Advanced
             configuration to control masked and ROI-based iteration.
+        custom_model (Optional[str]): Path to a custom Cellpose model. If None,
+            the default "cpsam" model will be used.
         overwrite (bool): Whether to overwrite an existing label image.
             Defaults to True.
     """
@@ -112,29 +130,51 @@ def cellpose_sam_segmentation_task(
     ome_zarr = open_ome_zarr_container(zarr_url)
     logging.info(f"{ome_zarr=}")
 
+    if len(channels.identifiers) == 0:
+        raise ValueError("At least one channel must be specified for segmentation.")
+    if len(channels.identifiers) > 3:
+        raise ValueError(
+            "A maximum of three channels can be specified for segmentation."
+        )
+
     if label_name is None:
-        label_name = f"{channel.identifier}_thresholded"
+        label_name = f"{channels.identifiers[0]}_thresholded"
     label = ome_zarr.derive_label(name=label_name, overwrite=overwrite)
     logging.info(f"Output label image: {label=}")
 
     if iterator_configuration is None:
         iterator_configuration = IteratorConfiguration()
 
+    # Determine if we are doing 3D segmentation
+    # If so we need to set the anisotropy factor
+    if ome_zarr.is_3d:
+        axes_order = "czyx"
+        pix_size_z, pix_size_xy = label.pixel_size.z, label.pixel_size.yx
+        assert pix_size_xy[0] == pix_size_xy[1], "Non-isotropic pixel size in XY"
+        anisotropy = pix_size_z / pix_size_xy[0]
+    else:
+        axes_order = "cyx"
+        anisotropy = None
+
+    # Set up the appropriate iterator based on the configuration
+    label = ome_zarr.get_label(name=label_name, path=level_path)
+
     if iterator_configuration.masking is None:
         # Create a basic SegmentationIterator without masking
-        image = ome_zarr.get_image()
+        image = ome_zarr.get_image(path=level_path)
         logging.info(f"{image=}")
         iterator = SegmentationIterator(
             input_image=image,
             output_label=label,
-            channel_selection=0,  # channel,
-            axes_order="zyx",
+            channel_selection=channels.to_list(),
+            axes_order=axes_order,
         )
     else:
         # Since masking is requested, we need to determine load a masking image
         masked_image = load_masked_image(
             ome_zarr=ome_zarr,
             masking_configuration=iterator_configuration.masking,
+            level_path=level_path,
         )
         logging.info(f"{masked_image=}")
         # A masked iterator is created instead of a basic segmentation iterator
@@ -145,8 +185,8 @@ def cellpose_sam_segmentation_task(
         iterator = MaskedSegmentationIterator(
             input_image=masked_image,
             output_label=label,
-            channel_selection=channel,
-            axes_order="zyx",
+            channel_selection=channels.to_list(),
+            axes_order=axes_order,
         )
     # Make sure that if we have a time axis, we iterate over it
     # Strict=False means that if there no z axis or z is size 1, it will still work
@@ -164,6 +204,16 @@ def cellpose_sam_segmentation_task(
         iterator = iterator.product(table)
         logging.info(f"Iterator updated with ROI table: {iterator=}")
 
+    # Initialize Cellpose model
+
+    io.logger_setup()  # run this to get printing of progress
+
+    # Check if colab notebook instance has GPU access
+    if custom_model is None:
+        custom_model = "cpsam"
+
+    model = models.CellposeModel(gpu=core.use_gpu(), pretrained_model=custom_model)
+
     # Keep track of the maximum label to ensure unique across iterations
     max_label = 0
     #
@@ -172,14 +222,17 @@ def cellpose_sam_segmentation_task(
     logging.info("Starting processing...")
     for image_data, writer in iterator.iter_as_numpy():
         label_img = segmentation_function(
-            int_img=image_data, threshold=threshold, min_size=min_size
+            image_data=image_data,
+            model=model,
+            parameters=advanced_parameters,
+            do_3D=ome_zarr.is_3d,
+            anisotropy=anisotropy,
         )
         # Ensure unique labels across different chunks
         label_img = np.where(label_img == 0, 0, label_img + max_label)
         max_label = label_img.max()
         writer(label_img)
-    # No need to call label.consolidate()
-    # SegmentationIterator handles this
+
     logging.info(f"label {label_name} successfully created at {zarr_url}")
     return None
 

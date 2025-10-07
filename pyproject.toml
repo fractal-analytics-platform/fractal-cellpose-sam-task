@@ -20,15 +20,13 @@ dynamic = ["version"]
 description = "A fractal task to run Cellpose SAM"
 readme = "README.md"
 license = { text = "BSD-3-Clause" }
-authors = [
-    { name = "Lorenzo Cerrone", email = "lorenzo.cerrone@uzh.ch" },
-]
+authors = [{ name = "Lorenzo Cerrone", email = "lorenzo.cerrone@uzh.ch" }]
 
 # Required Python version and dependencies
 requires-python = ">=3.11,<3.14"
 dependencies = [
     "ngio>=0.4.1,<0.5",
-    "scikit-image",
+    "cellpose>=4.0.6,<5.0",
     "fractal-task-tools>=0.0.14",
 ]
 

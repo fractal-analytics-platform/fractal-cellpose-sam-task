@@ -5,20 +5,140 @@
       "name": "Cellpose SAM Segmentation",
       "category": "Segmentation",
       "tags": [
+        "Deep Learning",
+        "Convolutional Neural Network",
         "Instance Segmentation",
-        "Classical segmentation"
+        "2D",
+        "3D",
+        "Cellpose",
+        "SAM"
       ],
       "docs_info": "### Purpose\n- Description and documentation of the Task functionality\n- Bullet points that cover main features of the tasks.\n- Can use **full** *markdown* formatting (including embedding images).\n\n### Outputs\n- Optional section on what kind of outputs the task generates. For the thresholding_task: Generates a new label image named `label_name`.\n\n### Limitations\n- List known limitations of the task (e.g. only works for certain data types).",
       "type": "parallel",
       "executable_parallel": "cellpose_sam_segmentation_task.py",
       "meta_parallel": {
-        "cpus_per_task": 1,
-        "mem": 4000
+        "cpus_per_task": 4,
+        "mem": 16000,
+        "needs_gpu": true
       },
       "args_schema_parallel": {
         "$defs": {
-          "ChannelSelectionModel": {
-            "description": "Model for channel selection.",
+          "AdvancedCellposeParameters": {
+            "description": "Advanced Cellpose Model Parameters",
+            "properties": {
+              "normalization": {
+                "$ref": "#/$defs/NormalizationParameters",
+                "default": {
+                  "mode": "default",
+                  "lowhigh": [
+                    0.0,
+                    1.0
+                  ],
+                  "sharpen": 0.0,
+                  "normalize": true,
+                  "percentile": [
+                    1.0,
+                    99.0
+                  ],
+                  "tile_norm_blocksize": 0,
+                  "norm3D": false
+                },
+                "title": "Normalization",
+                "description": "Normalization parameters."
+              },
+              "batch_size": {
+                "default": 8,
+                "title": "Batch Size",
+                "type": "integer",
+                "description": "number of 256x256 patches to run simultaneously on the GPU (can make smaller or bigger depending on GPU memory usage). Defaults to 8."
+              },
+              "resample": {
+                "default": true,
+                "title": "Resample",
+                "type": "boolean",
+                "description": "run dynamics at original image size (will be slower but create more accurate boundaries). Defaults to True."
+              },
+              "invert": {
+                "default": false,
+                "title": "Invert",
+                "type": "boolean",
+                "description": "invert image pixel intensity before running network. Defaults to False."
+              },
+              "diameter": {
+                "title": "Diameter",
+                "type": "number",
+                "description": "diameters are used to rescale the image to 30 pix cell diameter."
+              },
+              "flow_threshold": {
+                "default": 0.4,
+                "title": "Flow Threshold",
+                "type": "number",
+                "description": "flow error threshold (all cells with errors below threshold are kept) (not used for 3D). Defaults to 0.4."
+              },
+              "cellprob_threshold": {
+                "default": 0.0,
+                "title": "Cellprob Threshold",
+                "type": "number",
+                "description": "all pixels with value above threshold kept for masks, decrease to find more and larger masks. Defaults to 0.0."
+              },
+              "flow3D_smooth": {
+                "default": 0,
+                "title": "Flow3D Smooth",
+                "type": "integer",
+                "description": "if do_3D and flow3D_smooth>0, smooth flows with gaussian filter of this stddev. Defaults to 0."
+              },
+              "anisotropy": {
+                "title": "Anisotropy",
+                "type": "number",
+                "description": "for 3D segmentation, optional rescaling factor (e.g. set to 2.0 if Z is sampled half as dense as X or Y). Defaults to None."
+              },
+              "stitch_threshold": {
+                "default": 0.0,
+                "title": "Stitch Threshold",
+                "type": "number",
+                "description": "if stitch_threshold>0.0 and not do_3D, masks are stitched in 3D to return volume segmentation. Defaults to 0.0."
+              },
+              "min_size": {
+                "default": 15,
+                "title": "Min Size",
+                "type": "integer",
+                "description": "all ROIs below this size, in pixels, will be discarded. Defaults to 15."
+              },
+              "max_size_fraction": {
+                "default": 0.4,
+                "title": "Max Size Fraction",
+                "type": "number",
+                "description": "max_size_fraction (float, optional): Masks larger than max_size_fraction of total image size are removed. Default is 0.4."
+              },
+              "niter": {
+                "title": "Niter",
+                "type": "integer",
+                "description": "number of iterations for dynamics computation if None, it is set proportional to the diameter. Defaults to None."
+              },
+              "augment": {
+                "default": false,
+                "title": "Augment",
+                "type": "boolean",
+                "description": "tiles image with overlapping tiles and flips overlapped regions to augment. Defaults to False."
+              },
+              "tile_overlap": {
+                "default": 0.1,
+                "title": "Tile Overlap",
+                "type": "number",
+                "description": "fraction of overlap of tiles when computing flows. Defaults to 0.1."
+              },
+              "bsize": {
+                "default": 256,
+                "title": "Bsize",
+                "type": "integer",
+                "description": "block size for tiles, recommended to keep at 224, like in training. Defaults to 256."
+              }
+            },
+            "title": "AdvancedCellposeParameters",
+            "type": "object"
+          },
+          "CellposeChannels": {
+            "description": "Cellpose channels configuration.",
             "properties": {
               "mode": {
                 "default": "label",
@@ -31,16 +151,19 @@
                 "type": "string",
                 "description": "Specifies how to interpret the identifier. Can be \"label\", \"wavelength_id\", or \"index\" (must be an integer)."
               },
-              "identifier": {
-                "title": "Identifier",
-                "type": "string",
+              "identifiers": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Identifiers",
+                "type": "array",
                 "description": "Unique identifier for the channel. This can be a channel label, wavelength ID, or index."
               }
             },
             "required": [
-              "identifier"
+              "identifiers"
             ],
-            "title": "ChannelSelectionModel",
+            "title": "CellposeChannels",
             "type": "object"
           },
           "IteratorConfiguration": {
@@ -81,6 +204,86 @@
             },
             "title": "MaskingConfiguration",
             "type": "object"
+          },
+          "NormalizationParameters": {
+            "description": "Normalize each channel of the image.",
+            "properties": {
+              "mode": {
+                "default": "default",
+                "enum": [
+                  "default",
+                  "custom",
+                  "none"
+                ],
+                "title": "Mode",
+                "type": "string",
+                "description": "Literal[\"default\", \"custom\", \"none\"]: - \"default\": use Cellpose default normalization (0-1 rescaling and 1%-99% percentile clipping). all other parameters are ignored. - \"none\": do not apply any normalization, and ignore all other parameters. - \"custom\": use custom normalization parameters as specified below."
+              },
+              "lowhigh": {
+                "default": [
+                  0.0,
+                  1.0
+                ],
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "title": "Lowhigh",
+                "type": "array",
+                "description": "pass in normalization values for 0.0 and 1.0 as list [low, high]"
+              },
+              "sharpen": {
+                "default": 0.0,
+                "title": "Sharpen",
+                "type": "number",
+                "description": "sharpen image with high pass filter, recommended to be 1/4-1/8 diameter of cells in pixels"
+              },
+              "normalize": {
+                "default": true,
+                "title": "Normalize",
+                "type": "boolean",
+                "description": "run normalization (if False, all following parameters ignored)"
+              },
+              "percentile": {
+                "default": [
+                  1.0,
+                  99.0
+                ],
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "title": "Percentile",
+                "type": "array",
+                "description": "pass in percentiles to use as list [perc_low, perc_high]"
+              },
+              "tile_norm_blocksize": {
+                "default": 0,
+                "title": "Tile Norm Blocksize",
+                "type": "integer",
+                "description": "compute normalization in tiles across image to brighten dark areas, to turn on set to window size in pixels (e.g. 100)"
+              },
+              "norm3D": {
+                "default": false,
+                "title": "Norm3D",
+                "type": "boolean",
+                "description": "compute normalization across entire z-stack rather than plane-by-plane in stitching mode."
+              }
+            },
+            "title": "NormalizationParameters",
+            "type": "object"
           }
         },
         "additionalProperties": false,
@@ -90,31 +293,67 @@
             "type": "string",
             "description": "URL to the OME-Zarr container"
           },
-          "channel": {
-            "$ref": "#/$defs/ChannelSelectionModel",
-            "title": "Channel",
-            "description": "Select the input channel to be used for segmentation."
+          "channels": {
+            "$ref": "#/$defs/CellposeChannels",
+            "title": "Channels",
+            "description": "Channels to use for segmentation."
           },
           "label_name": {
             "title": "Label Name",
             "type": "string",
             "description": "Name of the resulting label image. If not provided, it will be set to \"<channel_identifier>_thresholded\"."
           },
-          "threshold": {
-            "title": "Threshold",
-            "type": "integer",
-            "description": "Threshold value to be applied."
+          "level_path": {
+            "title": "Level Path",
+            "type": "string",
+            "description": "If the OME-Zarr has multiple resolution levels, the level to use can be specified here. If None, the highest resolution level will be used."
           },
-          "min_size": {
-            "default": 50,
-            "title": "Min Size",
-            "type": "integer",
-            "description": "Minimum size of objects. Smaller objects are filtered out."
+          "advanced_parameters": {
+            "$ref": "#/$defs/AdvancedCellposeParameters",
+            "default": {
+              "normalization": {
+                "lowhigh": [
+                  0.0,
+                  1.0
+                ],
+                "mode": "default",
+                "norm3D": false,
+                "normalize": true,
+                "percentile": [
+                  1.0,
+                  99.0
+                ],
+                "sharpen": 0.0,
+                "tile_norm_blocksize": 0
+              },
+              "batch_size": 8,
+              "resample": true,
+              "invert": false,
+              "diameter": null,
+              "flow_threshold": 0.4,
+              "cellprob_threshold": 0.0,
+              "flow3D_smooth": 0,
+              "anisotropy": null,
+              "stitch_threshold": 0.0,
+              "min_size": 15,
+              "max_size_fraction": 0.4,
+              "niter": null,
+              "augment": false,
+              "tile_overlap": 0.1,
+              "bsize": 256
+            },
+            "title": "Advanced Parameters",
+            "description": "Advanced parameters for Cellpose segmentation."
           },
           "iterator_configuration": {
             "$ref": "#/$defs/IteratorConfiguration",
             "title": "Iterator Configuration",
             "description": "Advanced configuration to control masked and ROI-based iteration."
+          },
+          "custom_model": {
+            "title": "Custom Model",
+            "type": "string",
+            "description": "Path to a custom Cellpose model. If None, the default \"cpsam\" model will be used."
           },
           "overwrite": {
             "default": true,
@@ -125,8 +364,7 @@
         },
         "required": [
           "zarr_url",
-          "channel",
-          "threshold"
+          "channels"
         ],
         "type": "object",
         "title": "CellposeSamSegmentationTask"

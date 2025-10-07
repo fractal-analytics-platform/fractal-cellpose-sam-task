@@ -1,12 +1,13 @@
 from pathlib import Path
 
 import pytest
-from ngio import ChannelSelectionModel, create_synthetic_ome_zarr
+from ngio import create_synthetic_ome_zarr
 
 from fractal_cellpose_sam_task.cellpose_sam_segmentation_task import (
     cellpose_sam_segmentation_task,
 )
 from fractal_cellpose_sam_task.utils import (
+    CellposeChannels,
     IteratorConfiguration,
     MaskingConfiguration,
 )
@@ -21,10 +22,10 @@ from fractal_cellpose_sam_task.utils import (
         ((4, 64, 64), "tyx"),
         ((1, 64, 64), "zyx"),
         ((1, 1, 64, 64), "czyx"),
-        ((1, 10, 64, 64), "czyx"),
+        ((1, 2, 64, 64), "czyx"),
         ((1, 1, 64, 64), "tzyx"),
         ((1, 3, 64, 64), "tcyx"),
-        ((1, 1, 10, 64, 64), "tczyx"),
+        ((2, 1, 2, 64, 64), "tczyx"),
     ],
 )
 def test_cellpose_sam_segmentation_task(
@@ -46,9 +47,10 @@ def test_cellpose_sam_segmentation_task(
         overwrite=False,
         axes_names=axes,
     )
-    channel = ChannelSelectionModel(identifier="DAPI_0", mode="label")
+
+    channel = CellposeChannels(mode="label", identifiers=["DAPI_0"])
     cellpose_sam_segmentation_task(
-        zarr_url=str(test_data_path), threshold=18252, channel=channel, overwrite=False
+        zarr_url=str(test_data_path), channels=channel, overwrite=False
     )
 
     # Check that the label image was created
@@ -72,10 +74,10 @@ def test_cellpose_sam_segmentation_task(
         ((4, 64, 64), "tyx"),
         ((1, 64, 64), "zyx"),
         ((1, 1, 64, 64), "czyx"),
-        ((1, 10, 64, 64), "czyx"),
+        ((1, 2, 64, 64), "czyx"),
         ((1, 1, 64, 64), "tzyx"),
         ((1, 3, 64, 64), "tcyx"),
-        ((1, 1, 10, 64, 64), "tczyx"),
+        ((2, 1, 2, 64, 64), "tczyx"),
     ],
 )
 def test_cellpose_sam_segmentation_task_masked(
@@ -97,7 +99,10 @@ def test_cellpose_sam_segmentation_task_masked(
         overwrite=False,
         axes_names=axes,
     )
-    channel = ChannelSelectionModel(identifier="DAPI_0", mode="label")
+    channel = CellposeChannels(
+        mode="label",
+        identifiers=["DAPI_0"],
+    )
 
     iter_config = IteratorConfiguration(
         masking=MaskingConfiguration(mode="Label Name", identifier="nuclei_mask"),
@@ -105,8 +110,7 @@ def test_cellpose_sam_segmentation_task_masked(
     )
     cellpose_sam_segmentation_task(
         zarr_url=str(test_data_path),
-        threshold=18252,
-        channel=channel,
+        channels=channel,
         overwrite=False,
         iterator_configuration=iter_config,
     )
