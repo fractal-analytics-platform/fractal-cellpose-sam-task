@@ -1,0 +1,121 @@
+# https://peps.python.org/pep-0517/
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+# https://hatch.pypa.io/latest/config/metadata/
+[tool.hatch.version]
+source = "vcs"
+
+# read more about configuring hatch at:
+# https://hatch.pypa.io/latest/config/build/
+[tool.hatch.build.targets.wheel]
+packages = ["src/fractal_cellpose_sam_task"]
+
+
+# Project metadata (see https://peps.python.org/pep-0621)
+[project]
+name = "fractal-cellpose-sam-task"
+dynamic = ["version"]
+description = "A fractal task to run Cellpose SAM"
+readme = "README.md"
+license = { text = "BSD-3-Clause" }
+authors = [
+    { name = "Lorenzo Cerrone", email = "lorenzo.cerrone@uzh.ch" },
+]
+
+# Required Python version and dependencies
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "ngio>=0.4.1,<0.5",
+    "scikit-image",
+    "fractal-task-tools>=0.0.14",
+]
+
+# Optional dependencies (e.g. for `pip install -e ".[dev]"`, see
+# https://peps.python.org/pep-0621/#dependencies-optional-dependencies)
+[project.optional-dependencies]
+dev = [
+    "notebook",
+    "napari",
+    "pyqt5",
+    "devtools",
+    "hatch",
+    "pytest",
+    "requests",
+    "jsonschema",
+    "ruff",
+    "pre-commit",
+]
+
+# https://docs.astral.sh/ruff
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+src = ["src"]
+
+# https://docs.astral.sh/ruff/rules
+[tool.ruff.lint]
+pydocstyle = { convention = "google" }
+select = [
+    "E",    # style errors
+    "W",    # style warnings
+    "F",    # flakes
+    "D",    # pydocstyle
+    "D417", # Missing argument descriptions in Docstrings
+    "I",    # isort
+    "UP",   # pyupgrade
+    "C4",   # flake8-comprehensions
+    "B",    # flake8-bugbear
+    "A001", # flake8-builtins
+    "RUF",  # ruff-specific rules
+    "TCH",  # flake8-type-checking
+    "TID",  # flake8-tidy-imports
+]
+ignore = [
+    "D401",  # First line should be in imperative mood (remove to opt in)
+    "D415",  # First line should end with a period (remove to opt in)
+    "UP045",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["D", "S"]
+
+# https://docs.astral.sh/ruff/formatter/
+[tool.ruff.format]
+docstring-code-format = true
+docstring-code-line-length = 89
+skip-magic-trailing-comma = false # default is false
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["osx-arm64", "linux-64"]
+
+[tool.pixi.pypi-dependencies]
+fractal-cellpose-sam-task = { path = ".", editable = true }
+
+[tool.pixi.environments]
+default = { solve-group = "default" }
+dev = { features = ["dev"], solve-group = "default" }
+
+[tool.pixi.tasks]
+install-pre-commit = { cmd = ["pre-commit", "install"] }
+format-imports = { cmd = ["ruff", "check", "--select", "I", "--fix"] }
+format-code = { cmd = ["ruff", "format", "."] }
+
+create-manifest = { cmd = [
+    "fractal-manifest",
+    "create",
+    "--package",
+    "fractal-cellpose-sam-task",
+] }
+
+test = { cmd = ["pytest", "./tests/"] }
+
+init-tasks = [
+    { task = "install-pre-commit", environment = "dev" },
+    { task = "format-code", environment = "dev" },
+    { task = "format-imports", environment = "dev" },
+    { task = "create-manifest", environment = "dev" },
+    { task = "test", environment = "dev" },
+]

@@ -1,0 +1,253 @@
+{
+  "manifest_version": "2",
+  "task_list": [
+    {
+      "name": "Cellpose SAM Segmentation",
+      "category": "Segmentation",
+      "tags": [
+        "Instance Segmentation",
+        "Classical segmentation"
+      ],
+      "docs_info": "### Purpose\n- Description and documentation of the Task functionality\n- Bullet points that cover main features of the tasks.\n- Can use **full** *markdown* formatting (including embedding images).\n\n### Outputs\n- Optional section on what kind of outputs the task generates. For the thresholding_task: Generates a new label image named `label_name`.\n\n### Limitations\n- List known limitations of the task (e.g. only works for certain data types).",
+      "type": "parallel",
+      "executable_parallel": "cellpose_sam_segmentation_task.py",
+      "meta_parallel": {
+        "cpus_per_task": 1,
+        "mem": 4000
+      },
+      "args_schema_parallel": {
+        "$defs": {
+          "ChannelSelectionModel": {
+            "description": "Model for channel selection.",
+            "properties": {
+              "mode": {
+                "default": "label",
+                "enum": [
+                  "label",
+                  "wavelength_id",
+                  "index"
+                ],
+                "title": "Mode",
+                "type": "string",
+                "description": "Specifies how to interpret the identifier. Can be \"label\", \"wavelength_id\", or \"index\" (must be an integer)."
+              },
+              "identifier": {
+                "title": "Identifier",
+                "type": "string",
+                "description": "Unique identifier for the channel. This can be a channel label, wavelength ID, or index."
+              }
+            },
+            "required": [
+              "identifier"
+            ],
+            "title": "ChannelSelectionModel",
+            "type": "object"
+          },
+          "IteratorConfiguration": {
+            "description": "Advanced Masking configuration.",
+            "properties": {
+              "masking": {
+                "$ref": "#/$defs/MaskingConfiguration",
+                "title": "Masking Iterator Configuration",
+                "description": "If configured, the segmentation will be only saved within the mask region."
+              },
+              "roi_table": {
+                "title": "Iterate Over ROIs",
+                "type": "string",
+                "description": "Name of a ROI table. If provided, the segmentation will be performed for each ROI in the specified ROI table."
+              }
+            },
+            "title": "IteratorConfiguration",
+            "type": "object"
+          },
+          "MaskingConfiguration": {
+            "description": "Masking configuration.",
+            "properties": {
+              "mode": {
+                "default": "Table Name",
+                "enum": [
+                  "Table Name",
+                  "Label Name"
+                ],
+                "title": "Mode",
+                "type": "string",
+                "description": "Mode of masking to be applied. If \"Table Name\", the identifier refers to a masking table name. If \"Label Name\", the identifier refers to a label image name."
+              },
+              "identifier": {
+                "title": "Identifier",
+                "type": "string",
+                "description": "Name of the masking table or label image depending on the mode."
+              }
+            },
+            "title": "MaskingConfiguration",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "zarr_url": {
+            "title": "Zarr Url",
+            "type": "string",
+            "description": "URL to the OME-Zarr container"
+          },
+          "channel": {
+            "$ref": "#/$defs/ChannelSelectionModel",
+            "title": "Channel",
+            "description": "Select the input channel to be used for segmentation."
+          },
+          "label_name": {
+            "title": "Label Name",
+            "type": "string",
+            "description": "Name of the resulting label image. If not provided, it will be set to \"<channel_identifier>_thresholded\"."
+          },
+          "threshold": {
+            "title": "Threshold",
+            "type": "integer",
+            "description": "Threshold value to be applied."
+          },
+          "min_size": {
+            "default": 50,
+            "title": "Min Size",
+            "type": "integer",
+            "description": "Minimum size of objects. Smaller objects are filtered out."
+          },
+          "iterator_configuration": {
+            "$ref": "#/$defs/IteratorConfiguration",
+            "title": "Iterator Configuration",
+            "description": "Advanced configuration to control masked and ROI-based iteration."
+          },
+          "overwrite": {
+            "default": true,
+            "title": "Overwrite",
+            "type": "boolean",
+            "description": "Whether to overwrite an existing label image. Defaults to True."
+          }
+        },
+        "required": [
+          "zarr_url",
+          "channel",
+          "threshold"
+        ],
+        "type": "object",
+        "title": "ThresholdSegmentationTask"
+      },
+      "docs_link": "https://github.com/fractal-analytics-platform/fractal-cellpose-sam-task"
+    },
+    {
+      "name": "Gaussian Blur",
+      "output_types": {
+        "is_blurred": true
+      },
+      "category": "Image Processing",
+      "tags": [
+        "Denoising",
+        "Gaussian Blur"
+      ],
+      "docs_info": "### Purpose\n- Description and documentation of the Task functionality\n- Bullet points that cover main features of the tasks.\n- Can use **full** *markdown* formatting (including embedding images).\n\n### Outputs\n- Optional section on what kind of outputs the task generates. For the thresholding_task: Generates a new label image named `label_name`.\n\n### Limitations\n- List known limitations of the task (e.g. only works for certain data types).",
+      "type": "parallel",
+      "executable_parallel": "gaussian_blur_task.py",
+      "meta_parallel": {
+        "cpus_per_task": 1,
+        "mem": 4000
+      },
+      "args_schema_parallel": {
+        "additionalProperties": false,
+        "properties": {
+          "zarr_url": {
+            "title": "Zarr Url",
+            "type": "string",
+            "description": "URL to the OME-Zarr container."
+          },
+          "output_image_suffix": {
+            "default": "gaussian_blur",
+            "title": "Output Image Suffix",
+            "type": "string",
+            "description": "Suffix for the output image name."
+          },
+          "sigma_xy": {
+            "default": 1.0,
+            "title": "Sigma Xy",
+            "type": "number",
+            "description": "Standard deviation for Gaussian kernel in the XY plane. Defaults to 1.0."
+          },
+          "sigma_z": {
+            "title": "Sigma Z",
+            "type": "number",
+            "description": "Standard deviation for Gaussian kernel in the Z direction. If None, the smoothing will be applied only in XY."
+          },
+          "overwrite": {
+            "default": true,
+            "title": "Overwrite",
+            "type": "boolean",
+            "description": "Whether to overwrite an existing output image. Defaults to True."
+          },
+          "overwrite_input": {
+            "default": false,
+            "title": "Overwrite Input",
+            "type": "boolean",
+            "description": "If True, the task will first create a new OME-Zarr image with the Gaussian blur applied, and then overwrite the original image with the new one. Defaults to False."
+          }
+        },
+        "required": [
+          "zarr_url"
+        ],
+        "type": "object",
+        "title": "GaussianBlurTask"
+      },
+      "docs_link": "https://github.com/fractal-analytics-platform/fractal-cellpose-sam-task"
+    },
+    {
+      "name": "Region Props Features",
+      "category": "Measurement",
+      "tags": [
+        "Region Properties",
+        "Intensity",
+        "Morphology"
+      ],
+      "docs_info": "### Purpose\n- Description and documentation of the Task functionality\n- Bullet points that cover main features of the tasks.\n- Can use **full** *markdown* formatting (including embedding images).\n\n### Outputs\n- Optional section on what kind of outputs the task generates. For the thresholding_task: Generates a new label image named `label_name`.\n\n### Limitations\n- List known limitations of the task (e.g. only works for certain data types).",
+      "type": "parallel",
+      "executable_parallel": "region_props_features_task.py",
+      "meta_parallel": {
+        "cpus_per_task": 1,
+        "mem": 4000
+      },
+      "args_schema_parallel": {
+        "additionalProperties": false,
+        "properties": {
+          "zarr_url": {
+            "title": "Zarr Url",
+            "type": "string",
+            "description": "URL to the OME-Zarr container"
+          },
+          "label_image_name": {
+            "title": "Label Image Name",
+            "type": "string",
+            "description": "Name of the label image to analyze."
+          },
+          "output_table_name": {
+            "default": "region_props_features",
+            "title": "Output Table Name",
+            "type": "string",
+            "description": "Name for the output feature table."
+          },
+          "overwrite": {
+            "default": true,
+            "title": "Overwrite",
+            "type": "boolean",
+            "description": "Whether to overwrite an existing feature table. Defaults to True."
+          }
+        },
+        "required": [
+          "zarr_url",
+          "label_image_name"
+        ],
+        "type": "object",
+        "title": "RegionPropsFeaturesTask"
+      },
+      "docs_link": "https://github.com/fractal-analytics-platform/fractal-cellpose-sam-task"
+    }
+  ],
+  "has_args_schemas": true,
+  "args_schema_version": "pydantic_v2",
+  "authors": "Lorenzo Cerrone"
+}
