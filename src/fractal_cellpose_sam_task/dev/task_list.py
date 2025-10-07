@@ -25,7 +25,6 @@ INPUT_MODELS = [
 ]
 
 TASK_LIST = [
-    
     ParallelTask(
         name="Cellpose SAM Segmentation",
         executable="cellpose_sam_segmentation_task.py",
@@ -36,7 +35,4 @@ TASK_LIST = [
         tags=["Instance Segmentation", "Classical segmentation"],
         docs_info="file:docs_info/cellpose_sam_segmentation_task.md",
     ),
-    
-    
-    
 ]

@@ -27,7 +27,9 @@ from fractal_cellpose_sam_task.utils import (
         ((1, 1, 10, 64, 64), "tczyx"),
     ],
 )
-def test_cellpose_sam_segmentation_task(tmp_path: Path, shape: tuple[int, ...], axes: str):
+def test_cellpose_sam_segmentation_task(
+    tmp_path: Path, shape: tuple[int, ...], axes: str
+):
     """Base test for the threshold segmentation task."""
     test_data_path = tmp_path / "data.zarr"
 
