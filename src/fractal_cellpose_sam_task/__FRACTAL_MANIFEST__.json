@@ -44,7 +44,7 @@
                   "norm3D": false
                 },
                 "title": "Normalization",
-                "description": "Normalization parameters."
+                "description": "Normalization parameters. The normalization is applied before running the Cellpose model for each channel independently."
               },
               "batch_size": {
                 "default": 8,
@@ -149,20 +149,19 @@
                 ],
                 "title": "Mode",
                 "type": "string",
-                "description": "Specifies how to interpret the identifier. Can be \"label\", \"wavelength_id\", or \"index\" (must be an integer)."
+                "description": "Specifies how to interpret the identifier. Can be \"label\", \"wavelength_id\", or \"index\" (must be an integer). At least one and at most three identifiers must be provided."
               },
               "identifiers": {
                 "items": {
                   "type": "string"
                 },
+                "maxItems": 3,
+                "minItems": 1,
                 "title": "Identifiers",
                 "type": "array",
                 "description": "Unique identifier for the channel. This can be a channel label, wavelength ID, or index."
               }
             },
-            "required": [
-              "identifiers"
-            ],
             "title": "CellposeChannels",
             "type": "object"
           },
@@ -172,12 +171,12 @@
               "masking": {
                 "$ref": "#/$defs/MaskingConfiguration",
                 "title": "Masking Iterator Configuration",
-                "description": "If configured, the segmentation will be only saved within the mask region."
+                "description": "If set, the segmentation will be performed only within the confines of the specified mask. A mask can be specified either by a label image or a Masking ROI table."
               },
               "roi_table": {
                 "title": "Iterate Over ROIs",
                 "type": "string",
-                "description": "Name of a ROI table. If provided, the segmentation will be performed for each ROI in the specified ROI table."
+                "description": "Name of a ROI table. If set, the segmentation will be applied to each ROI in the table individually. This option can be combined with masking."
               }
             },
             "title": "IteratorConfiguration",
@@ -206,7 +205,7 @@
             "type": "object"
           },
           "NormalizationParameters": {
-            "description": "Normalize each channel of the image.",
+            "description": "Normalization parameters for Cellpose.",
             "properties": {
               "mode": {
                 "default": "default",
@@ -296,17 +295,27 @@
           "channels": {
             "$ref": "#/$defs/CellposeChannels",
             "title": "Channels",
-            "description": "Channels to use for segmentation."
+            "description": "Channels to use for segmentation. It must contain between 1 and 3 channel identifiers."
           },
           "label_name": {
             "title": "Label Name",
             "type": "string",
-            "description": "Name of the resulting label image. If not provided, it will be set to \"<channel_identifier>_thresholded\"."
+            "description": "Name of the resulting label image. If not provided, it will be set to \"<channel_identifier>_segmented\"."
           },
           "level_path": {
             "title": "Level Path",
             "type": "string",
-            "description": "If the OME-Zarr has multiple resolution levels, the level to use can be specified here. If None, the highest resolution level will be used."
+            "description": "If the OME-Zarr has multiple resolution levels, the level to use can be specified here. If not provided, the highest resolution level will be used."
+          },
+          "iterator_configuration": {
+            "$ref": "#/$defs/IteratorConfiguration",
+            "title": "Iterator Configuration",
+            "description": "Configuration for the segmentation iterator. This can be used to specify masking and/or a ROI table."
+          },
+          "custom_model": {
+            "title": "Custom Model",
+            "type": "string",
+            "description": "Path to a custom Cellpose model. If not set, the default \"cpsam\" model will be used."
           },
           "advanced_parameters": {
             "$ref": "#/$defs/AdvancedCellposeParameters",
@@ -344,16 +353,6 @@
             },
             "title": "Advanced Parameters",
             "description": "Advanced parameters for Cellpose segmentation."
-          },
-          "iterator_configuration": {
-            "$ref": "#/$defs/IteratorConfiguration",
-            "title": "Iterator Configuration",
-            "description": "Advanced configuration to control masked and ROI-based iteration."
-          },
-          "custom_model": {
-            "title": "Custom Model",
-            "type": "string",
-            "description": "Path to a custom Cellpose model. If None, the default \"cpsam\" model will be used."
           },
           "overwrite": {
             "default": true,

@@ -26,9 +26,7 @@ def segmentation_function(
     do_3D: bool,
     anisotropy: Optional[float] = None,
 ) -> np.ndarray:
-    """Example segmentation function.
-
-    This function will need to be adapted to the specific segmentation method.
+    """Wrap Cellpose segmentation call.
 
     Args:
         image_data (np.ndarray): Input image data
@@ -97,29 +95,34 @@ def cellpose_sam_segmentation_task(
     channels: CellposeChannels,
     label_name: Optional[str] = None,
     level_path: Optional[str] = None,
-    # Cellpose parameters
-    advanced_parameters: AdvancedCellposeParameters = AdvancedCellposeParameters(),  # noqa: B008
     # Iteration parameters
     iterator_configuration: Optional[IteratorConfiguration] = None,
     custom_model: Optional[str] = None,
+    # Cellpose parameters
+    advanced_parameters: AdvancedCellposeParameters = AdvancedCellposeParameters(),  # noqa: B008
     overwrite: bool = True,
 ) -> None:
-    """Segment an image using a simple thresholding method.
+    """Segment an image using Cellpose with SAM model.
+
+    For more information, see:
+        https://github.com/MouseLand/cellpose/tree/main/cellpose
 
     Args:
         zarr_url (str): URL to the OME-Zarr container
         channels (CellposeChannels): Channels to use for segmentation.
+            It must contain between 1 and 3 channel identifiers.
         label_name (Optional[str]): Name of the resulting label image. If not provided,
-            it will be set to "<channel_identifier>_thresholded".
+            it will be set to "<channel_identifier>_segmented".
         level_path (Optional[str]): If the OME-Zarr has multiple resolution levels,
-            the level to use can be specified here. If None, the highest resolution
-            level will be used.
+            the level to use can be specified here. If not provided, the highest
+            resolution level will be used.
+        iterator_configuration (Optional[IteratorConfiguration]): Configuration
+            for the segmentation iterator. This can be used to specify masking
+            and/or a ROI table.
+        custom_model (Optional[str]): Path to a custom Cellpose model. If not
+            set, the default "cpsam" model will be used.
         advanced_parameters (AdvancedCellposeParameters): Advanced parameters
             for Cellpose segmentation.
-        iterator_configuration (Optional[IteratorConfiguration]): Advanced
-            configuration to control masked and ROI-based iteration.
-        custom_model (Optional[str]): Path to a custom Cellpose model. If None,
-            the default "cpsam" model will be used.
         overwrite (bool): Whether to overwrite an existing label image.
             Defaults to True.
     """
@@ -130,15 +133,8 @@ def cellpose_sam_segmentation_task(
     ome_zarr = open_ome_zarr_container(zarr_url)
     logging.info(f"{ome_zarr=}")
 
-    if len(channels.identifiers) == 0:
-        raise ValueError("At least one channel must be specified for segmentation.")
-    if len(channels.identifiers) > 3:
-        raise ValueError(
-            "A maximum of three channels can be specified for segmentation."
-        )
-
     if label_name is None:
-        label_name = f"{channels.identifiers[0]}_thresholded"
+        label_name = f"{channels.identifiers[0]}_segmented"
     label = ome_zarr.derive_label(name=label_name, overwrite=overwrite)
     logging.info(f"Output label image: {label=}")
 

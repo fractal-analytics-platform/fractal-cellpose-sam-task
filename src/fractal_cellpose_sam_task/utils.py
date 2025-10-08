@@ -25,10 +25,12 @@ class IteratorConfiguration(BaseModel):
     """Advanced Masking configuration.
 
     Args:
-        masking (Optional[MaskingIterator]): If configured, the segmentation
-            will be only saved within the mask region.
-        roi_table (Optional[str]): Name of a ROI table. If provided, the segmentation
-            will be performed for each ROI in the specified ROI table.
+        masking (Optional[MaskingIterator]): If set, the segmentation will be
+            performed only within the confines of the specified mask. A mask can be
+            specified either by a label image or a Masking ROI table.
+        roi_table (Optional[str]): Name of a ROI table. If set, the segmentation
+            will be applied to each ROI in the table individually. This option can
+            be combined with masking.
     """
 
     masking: Optional[MaskingConfiguration] = Field(
@@ -38,7 +40,10 @@ class IteratorConfiguration(BaseModel):
 
 
 class NormalizationParameters(BaseModel):
-    """Normalize each channel of the image.
+    """Normalization parameters for Cellpose.
+
+    The normalization is applied before running the Cellpose model for
+    each channel independently.
 
     Args:
         mode: Literal["default", "custom", "none"]:
@@ -93,6 +98,8 @@ class AdvancedCellposeParameters(BaseModel):
 
     Attributes:
         normalization (NormalizationParameters, optional): Normalization parameters.
+            The normalization is applied before running the Cellpose model for
+            each channel independently.
         batch_size (int, optional): number of 256x256 patches to run simultaneously
             on the GPU (can make smaller or bigger depending on GPU memory usage).
             Defaults to 8.
@@ -188,12 +195,13 @@ class CellposeChannels(BaseModel):
             This can be a channel label, wavelength ID, or index.
         mode (Literal["label", "wavelength_id", "index"]): Specifies how to
             interpret the identifier. Can be "label", "wavelength_id", or
-            "index" (must be an integer).
+            "index" (must be an integer). At least one and at most three
+            identifiers must be provided.
 
     """
 
     mode: Literal["label", "wavelength_id", "index"] = "label"
-    identifiers: list[str]
+    identifiers: list[str] = Field(default_factory=list, min_length=1, max_length=3)
 
     def to_list(self) -> list[ChannelSelectionModel]:
         """Convert to list of ChannelSelectionModel.
