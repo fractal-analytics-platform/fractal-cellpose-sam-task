@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import numpy as np
 import pytest
 from ngio import create_synthetic_ome_zarr
 
@@ -13,7 +14,15 @@ from fractal_cellpose_sam_task.utils import (
 )
 
 
-@pytest.mark.skip
+class MockCellposeModel:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def eval(self, image, **kwargs):
+        masks = np.ones(image.shape[1:], dtype=np.uint32)
+        return masks, None, None
+
+
 @pytest.mark.parametrize(
     "shape, axes",
     [
@@ -30,7 +39,7 @@ from fractal_cellpose_sam_task.utils import (
     ],
 )
 def test_cellpose_sam_segmentation_task(
-    tmp_path: Path, shape: tuple[int, ...], axes: str
+    monkeypatch, is_github_or_fast, tmp_path: Path, shape: tuple[int, ...], axes: str
 ):
     """Base test for the threshold segmentation task."""
     test_data_path = tmp_path / "data.zarr"
@@ -50,6 +59,17 @@ def test_cellpose_sam_segmentation_task(
     )
 
     channel = CellposeChannels(mode="label", identifiers=["DAPI_0"])
+
+    if is_github_or_fast:
+        # Mock Cellpose model in GitHub Actions to avoid downloading the model
+        import cellpose.models
+
+        monkeypatch.setattr(
+            cellpose.models,
+            "CellposeModel",
+            MockCellposeModel,
+        )
+
     cellpose_sam_segmentation_task(
         zarr_url=str(test_data_path), channels=channel, overwrite=False
     )
@@ -66,7 +86,6 @@ def test_cellpose_sam_segmentation_task(
     # results not only the presence of a label image.
 
 
-@pytest.mark.skip
 @pytest.mark.parametrize(
     "shape, axes",
     [
@@ -83,7 +102,7 @@ def test_cellpose_sam_segmentation_task(
     ],
 )
 def test_cellpose_sam_segmentation_task_masked(
-    tmp_path: Path, shape: tuple[int, ...], axes: str
+    monkeypatch, is_github_or_fast, tmp_path: Path, shape: tuple[int, ...], axes: str
 ):
     """Test the threshold segmentation task with a masking configuration."""
     test_data_path = tmp_path / "data.zarr"
@@ -110,11 +129,60 @@ def test_cellpose_sam_segmentation_task_masked(
         masking=MaskingConfiguration(mode="Label Name", identifier="nuclei_mask"),
         roi_table=None,
     )
+
+    if is_github_or_fast:
+        # Mock Cellpose model in GitHub Actions to avoid downloading the model
+        import cellpose.models
+
+        monkeypatch.setattr(
+            cellpose.models,
+            "CellposeModel",
+            MockCellposeModel,
+        )
+
     cellpose_sam_segmentation_task(
         zarr_url=str(test_data_path),
         channels=channel,
         overwrite=False,
         iterator_configuration=iter_config,
+    )
+
+    # Check that the label image was created
+    assert "DAPI_0_thresholded" in ome_zarr.list_labels()
+
+    label = ome_zarr.get_label("DAPI_0_thresholded")
+    label_data = label.get_as_numpy()
+    # Check that the label image is not empty
+    assert label_data.max() > 0
+    # DISCLAIMER: This is only a very basic test.
+    # More comprehensive tests should be implemented based on the expected
+    # results not only the presence of a label image.
+
+
+def test_cellpose_sam_segmentation_task_no_mock(monkeypatch, tmp_path: Path):
+    """Base test for the threshold segmentation task."""
+    test_data_path = tmp_path / "data.zarr"
+    shape = (1, 64, 64)
+    axes = "cyx"
+
+    if "c" in axes:
+        num_channels = shape[axes.index("c")]
+    else:
+        num_channels = 1
+    channel_labels = [f"DAPI_{i}" for i in range(num_channels)]
+
+    ome_zarr = create_synthetic_ome_zarr(
+        store=test_data_path,
+        shape=shape,
+        channel_labels=channel_labels,
+        overwrite=False,
+        axes_names=axes,
+    )
+
+    channel = CellposeChannels(mode="label", identifiers=["DAPI_0"])
+
+    cellpose_sam_segmentation_task(
+        zarr_url=str(test_data_path), channels=channel, overwrite=False
     )
 
     # Check that the label image was created
