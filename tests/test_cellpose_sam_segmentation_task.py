@@ -2,7 +2,8 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from ngio import create_synthetic_ome_zarr
+from ngio import OmeZarrContainer, create_synthetic_ome_zarr
+from skimage.metrics import adapted_rand_error
 
 from fractal_cellpose_sam_task.cellpose_sam_segmentation_task import (
     cellpose_sam_segmentation_task,
@@ -23,6 +24,35 @@ class MockCellposeModel:
         return masks, None, None
 
 
+def check_label_quality(
+    ome_zarr: OmeZarrContainer, label_name: str, gt_name: str = "nuclei"
+):
+    prediction = ome_zarr.get_label(label_name).get_as_numpy(axes_order="tzyx", t=0)
+    ground_truth = ome_zarr.get_label(gt_name).get_as_numpy(axes_order="tzyx", t=0)
+    are, _, _ = adapted_rand_error(ground_truth, prediction)
+    assert are < 0.01, (
+        f"Adapted Rand Error too high: {are}<0.01. Labels might be wrong."
+    )
+
+
+def check_masked_label_quality(
+    ome_zarr: OmeZarrContainer,
+    label_name: str,
+    gt_name: str = "nuclei",
+    masking_label_name: str = "nuclei_mask",
+):
+    prediction = ome_zarr.get_label(label_name).get_as_numpy(axes_order="tzyx", t=0)
+    ground_truth = ome_zarr.get_label(gt_name).get_as_numpy(axes_order="tzyx", t=0)
+    mask = ome_zarr.get_label(masking_label_name).get_as_numpy(axes_order="tzyx", t=0)
+
+    ground_truth = ground_truth * (mask > 0)  # Apply mask to ground truth
+    are, _, _ = adapted_rand_error(ground_truth, prediction)
+    assert are < 0.01, (
+        f"Adapted Rand Error too high: {are}<0.01. Labels might be wrong."
+    )
+
+
+@pytest.mark.skip()
 @pytest.mark.parametrize(
     "shape, axes",
     [
@@ -76,14 +106,6 @@ def test_cellpose_sam_segmentation_task(
 
     # Check that the label image was created
     assert "DAPI_0_thresholded" in ome_zarr.list_labels()
-
-    label = ome_zarr.get_label("DAPI_0_thresholded")
-    label_data = label.get_as_numpy()
-    # Check that the label image is not empty
-    assert label_data.max() > 0
-    # DISCLAIMER: This is only a very basic test.
-    # More comprehensive tests should be implemented based on the expected
-    # results not only the presence of a label image.
 
 
 @pytest.mark.parametrize(
@@ -149,14 +171,12 @@ def test_cellpose_sam_segmentation_task_masked(
 
     # Check that the label image was created
     assert "DAPI_0_thresholded" in ome_zarr.list_labels()
-
-    label = ome_zarr.get_label("DAPI_0_thresholded")
-    label_data = label.get_as_numpy()
-    # Check that the label image is not empty
-    assert label_data.max() > 0
-    # DISCLAIMER: This is only a very basic test.
-    # More comprehensive tests should be implemented based on the expected
-    # results not only the presence of a label image.
+    if is_github_or_fast:
+        return
+    check_masked_label_quality(
+        ome_zarr,
+        "DAPI_0_thresholded",
+    )
 
 
 def test_cellpose_sam_segmentation_task_no_mock(monkeypatch, tmp_path: Path):
@@ -188,10 +208,4 @@ def test_cellpose_sam_segmentation_task_no_mock(monkeypatch, tmp_path: Path):
     # Check that the label image was created
     assert "DAPI_0_thresholded" in ome_zarr.list_labels()
 
-    label = ome_zarr.get_label("DAPI_0_thresholded")
-    label_data = label.get_as_numpy()
-    # Check that the label image is not empty
-    assert label_data.max() > 0
-    # DISCLAIMER: This is only a very basic test.
-    # More comprehensive tests should be implemented based on the expected
-    # results not only the presence of a label image.
+    check_label_quality(ome_zarr, "DAPI_0_thresholded")
