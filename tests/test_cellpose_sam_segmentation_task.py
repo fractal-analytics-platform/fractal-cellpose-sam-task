@@ -52,7 +52,6 @@ def check_masked_label_quality(
     )
 
 
-@pytest.mark.skip()
 @pytest.mark.parametrize(
     "shape, axes",
     [
@@ -71,7 +70,7 @@ def check_masked_label_quality(
 def test_cellpose_sam_segmentation_task(
     monkeypatch, is_github_or_fast, tmp_path: Path, shape: tuple[int, ...], axes: str
 ):
-    """Base test for the threshold segmentation task."""
+    """Base test for the cellpose segmentation task."""
     test_data_path = tmp_path / "data.zarr"
 
     if "c" in axes:
@@ -105,7 +104,7 @@ def test_cellpose_sam_segmentation_task(
     )
 
     # Check that the label image was created
-    assert "DAPI_0_thresholded" in ome_zarr.list_labels()
+    assert "DAPI_0_segmented" in ome_zarr.list_labels()
 
 
 @pytest.mark.parametrize(
@@ -126,7 +125,7 @@ def test_cellpose_sam_segmentation_task(
 def test_cellpose_sam_segmentation_task_masked(
     monkeypatch, is_github_or_fast, tmp_path: Path, shape: tuple[int, ...], axes: str
 ):
-    """Test the threshold segmentation task with a masking configuration."""
+    """Test the cellpose segmentation task with a masking configuration."""
     test_data_path = tmp_path / "data.zarr"
 
     if "c" in axes:
@@ -170,17 +169,17 @@ def test_cellpose_sam_segmentation_task_masked(
     )
 
     # Check that the label image was created
-    assert "DAPI_0_thresholded" in ome_zarr.list_labels()
+    assert "DAPI_0_segmented" in ome_zarr.list_labels()
     if is_github_or_fast:
         return
     check_masked_label_quality(
         ome_zarr,
-        "DAPI_0_thresholded",
+        "DAPI_0_segmented",
     )
 
 
-def test_cellpose_sam_segmentation_task_no_mock(monkeypatch, tmp_path: Path):
-    """Base test for the threshold segmentation task."""
+def test_cellpose_sam_segmentation_task_no_mock(tmp_path: Path):
+    """Base test for the cellpose segmentation task without mocking."""
     test_data_path = tmp_path / "data.zarr"
     shape = (1, 64, 64)
     axes = "cyx"
@@ -206,6 +205,6 @@ def test_cellpose_sam_segmentation_task_no_mock(monkeypatch, tmp_path: Path):
     )
 
     # Check that the label image was created
-    assert "DAPI_0_thresholded" in ome_zarr.list_labels()
+    assert "DAPI_0_segmented" in ome_zarr.list_labels()
 
-    check_label_quality(ome_zarr, "DAPI_0_thresholded")
+    check_label_quality(ome_zarr, "DAPI_0_segmented")
