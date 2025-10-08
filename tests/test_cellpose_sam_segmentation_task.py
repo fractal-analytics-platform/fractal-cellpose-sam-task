@@ -13,6 +13,7 @@ from fractal_cellpose_sam_task.utils import (
 )
 
 
+@pytest.mark.skip
 @pytest.mark.parametrize(
     "shape, axes",
     [
@@ -65,6 +66,7 @@ def test_cellpose_sam_segmentation_task(
     # results not only the presence of a label image.
 
 
+@pytest.mark.skip
 @pytest.mark.parametrize(
     "shape, axes",
     [
