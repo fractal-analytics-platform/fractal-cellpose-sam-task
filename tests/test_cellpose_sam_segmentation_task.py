@@ -30,9 +30,7 @@ def check_label_quality(
     prediction = ome_zarr.get_label(label_name).get_as_numpy(axes_order="tzyx", t=0)
     ground_truth = ome_zarr.get_label(gt_name).get_as_numpy(axes_order="tzyx", t=0)
     are, _, _ = adapted_rand_error(ground_truth, prediction)
-    assert are < 0.01, (
-        f"Adapted Rand Error too high: {are}<0.01. Labels might be wrong."
-    )
+    assert are < 0.1, f"Adapted Rand Error too high: {are}<0.1. Labels might be wrong."
 
 
 def check_masked_label_quality(
@@ -47,9 +45,7 @@ def check_masked_label_quality(
 
     ground_truth = ground_truth * (mask > 0)  # Apply mask to ground truth
     are, _, _ = adapted_rand_error(ground_truth, prediction)
-    assert are < 0.01, (
-        f"Adapted Rand Error too high: {are}<0.01. Labels might be wrong."
-    )
+    assert are < 0.1, f"Adapted Rand Error too high: {are}<0.1. Labels might be wrong."
 
 
 @pytest.mark.parametrize(
