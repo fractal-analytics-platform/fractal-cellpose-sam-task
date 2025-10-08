@@ -33,6 +33,9 @@ dependencies = [
 # Optional dependencies (e.g. for `pip install -e ".[dev]"`, see
 # https://peps.python.org/pep-0621/#dependencies-optional-dependencies)
 [project.optional-dependencies]
+
+test = ["pytest", "requests", "jsonschema", "devtools"]
+
 dev = [
     "notebook",
     "napari",
@@ -95,6 +98,7 @@ fractal-cellpose-sam-task = { path = ".", editable = true }
 [tool.pixi.environments]
 default = { solve-group = "default" }
 dev = { features = ["dev"], solve-group = "default" }
+test = { features = ["test"], solve-group = "default" }
 
 [tool.pixi.tasks]
 install-pre-commit = { cmd = ["pre-commit", "install"] }
