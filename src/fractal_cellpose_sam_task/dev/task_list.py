@@ -25,7 +25,17 @@ INPUT_MODELS = [
     (
         "fractal_cellpose_sam_task",
         "utils.py",
-        "NormalizationParameters",
+        "CustomNorm",
+    ),
+    (
+        "fractal_cellpose_sam_task",
+        "utils.py",
+        "NoNorm",
+    ),
+    (
+        "fractal_cellpose_sam_task",
+        "utils.py",
+        "DefaultNorm",
     ),
     (
         "fractal_cellpose_sam_task",

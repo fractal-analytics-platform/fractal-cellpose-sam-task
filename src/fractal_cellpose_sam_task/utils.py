@@ -1,6 +1,6 @@
 """Pydantic models for advanced iterator configuration."""
 
-from typing import Literal, Optional
+from typing import Annotated, Literal, Optional, Union
 
 from ngio import ChannelSelectionModel
 from pydantic import BaseModel, Field
@@ -39,38 +39,93 @@ class IteratorConfiguration(BaseModel):
     roi_table: Optional[str] = Field(default=None, title="Iterate Over ROIs")
 
 
-class NormalizationParameters(BaseModel):
-    """Normalization parameters for Cellpose.
+class DefaultNorm(BaseModel):
+    """Default Cellpose normalization.
+
+    Args:
+        mode: Literal["default"]: Use Cellpose default normalization (0-1 rescaling and
+            1%-99% percentile clipping). all other parameters are ignored.
+    """
+
+    mode: Literal["default"] = "default"
+
+    def to_eval_kwargs(self) -> bool:
+        """Convert to dictionary of keyword arguments for cellpose.eval.
+
+        Returns:
+            bool: True indicating default normalization.
+        """
+        return True
+
+
+class NoNorm(BaseModel):
+    """Disable Cellpose normalization.
+
+    Args:
+        mode: Literal["none"]: Do not apply any normalization, and ignore all other
+            parameters.
+    """
+
+    mode: Literal["none"] = "none"
+
+    def to_eval_kwargs(self) -> bool:
+        """Convert to dictionary of keyword arguments for cellpose.eval.
+
+        Returns:
+            bool: False indicating no normalization.
+        """
+        return False
+
+
+class CustomNorm(BaseModel):
+    """Custom Cellpose normalization.
 
     The normalization is applied before running the Cellpose model for
     each channel independently.
 
     Args:
-        mode: Literal["default", "custom", "none"]:
-            - "default": use Cellpose default normalization (0-1 rescaling and 1%-99%
-                percentile clipping). all other parameters are ignored.
-            - "none": do not apply any normalization, and ignore all other parameters.
-            - "custom": use custom normalization parameters as specified below.
-        lowhigh (Optional[tuple[float, float]]): pass in normalization values for
-            0.0 and 1.0 as list [low, high]
-        sharpen (float): sharpen image with high pass filter, recommended to be
-            1/4-1/8 diameter of cells in pixels
-        normalize (bool): run normalization (if False, all following parameters ignored)
-        percentile (tuple[float, float]): pass in percentiles to use as list
-            [perc_low, perc_high]
-        tile_norm_blocksize (int): compute normalization in tiles across image to
-            brighten dark areas, to turn on set to window size in pixels (e.g. 100)
-        norm3D (bool): compute normalization across entire z-stack rather than
-            plane-by-plane in stitching mode.
+        mode: Literal["custom"]: Use custom normalization with full control over
+            parameters.
+        normalize (bool, optional): Whether to perform normalization. Defaults to True.
+        norm3D (bool, optional): Whether to normalize in 3D. If True, the entire 3D
+            stack will be normalized per channel. If False, normalization is applied
+            per Z-slice. Defaults to False.
+        invert (bool, optional): Whether to invert the image. Useful if cells are dark
+            instead of bright. Defaults to False.
+        use_lowhigh (bool, optional): Whether to use lowhigh normalization. If False,
+            percentile normalization will be used instead. Defaults to False.
+        lowhigh (tuple or ndarray, optional): The lower and upper bounds for
+            normalization. Can be a tuple of two values (applied to all channels) or
+            an array of shape (nchan, 2) for per-channel normalization. Incompatible
+            with smoothing and sharpening. Defaults to None.
+        percentile (tuple, optional): The lower and upper percentiles for normalization.
+            If provided, it should be a tuple of two values. Each value should be
+            between 0 and 100. If use_lowhigh is True, this parameter is ignored.
+            Defaults to (1.0, 99.0).
+        sharpen_radius (int, optional): The radius for sharpening the image. Defaults
+            to 0.
+        smooth_radius (int, optional): The radius for smoothing the image. Defaults
+            to 0.
+        tile_norm_blocksize (int, optional): The block size for tile-based
+            normalization. Defaults to 0.
+        tile_norm_smooth3D (int, optional): The smoothness factor for tile-based
+            normalization in 3D. Defaults to 1.
+        axis (int, optional): The channel axis to loop over for normalization.
+            Defaults to -1.
     """
 
-    mode: Literal["default", "custom", "none"] = "default"
-    lowhigh: tuple[float, float] = (0.0, 1.0)
-    sharpen: float = 0.0
+    mode: Literal["custom"] = "custom"
     normalize: bool = True
-    percentile: tuple[float, float] = (1.0, 99.0)
-    tile_norm_blocksize: int = 0
     norm3D: bool = False
+    invert: bool = False
+    use_lowhigh: bool = False
+    lowhigh: tuple[float, float] = (0.0, 1000.0)
+    percentile: tuple[float, float] = (1.0, 99.0)
+    sharpen_radius: float = 0.0
+    smooth_radius: float = 0.0
+    tile_norm_blocksize: int = 0
+    tile_norm_smooth3D: int = 1
+    axis: int = -1
 
     def to_eval_kwargs(self) -> bool | dict:
         """Convert to dictionary of keyword arguments for cellpose.eval.
@@ -78,28 +133,33 @@ class NormalizationParameters(BaseModel):
         Returns:
             dict: Dictionary of keyword arguments for cellpose.eval.
         """
-        if self.mode == "default":
-            return True
-        if self.mode == "none":
-            return False
-        # Custom mode
         return {
             "normalize": self.normalize,
-            "lowhigh": self.lowhigh,
-            "sharpen": self.sharpen,
-            "percentile": self.percentile,
-            "tile_norm_blocksize": self.tile_norm_blocksize,
             "norm3D": self.norm3D,
+            "invert": self.invert,
+            "lowhigh": self.lowhigh if self.use_lowhigh else None,
+            "percentile": self.percentile,
+            "sharpen_radius": self.sharpen_radius,
+            "smooth_radius": self.smooth_radius,
+            "tile_norm_blocksize": self.tile_norm_blocksize,
+            "tile_norm_smooth3D": self.tile_norm_smooth3D,
+            "axis": self.axis,
         }
+
+
+AnyNormModel = Annotated[
+    Union[DefaultNorm, NoNorm, CustomNorm], Field(discriminator="mode")
+]
 
 
 class AdvancedCellposeParameters(BaseModel):
     """Advanced Cellpose Model Parameters
 
     Attributes:
-        normalization (NormalizationParameters, optional): Normalization parameters.
-            The normalization is applied before running the Cellpose model for
-            each channel independently.
+        normalization (AnyNormModel, optional): Normalization model to use.
+            Options are DefaultNorm (use Cellpose default normalization),
+            NoNorm (disable normalization), or CustomNorm (full control over
+            normalization parameters). Defaults to DefaultNorm().
         batch_size (int, optional): number of 256x256 patches to run simultaneously
             on the GPU (can make smaller or bigger depending on GPU memory usage).
             Defaults to 8.
@@ -137,9 +197,11 @@ class AdvancedCellposeParameters(BaseModel):
             when computing flows. Defaults to 0.1.
         bsize (int, optional): block size for tiles, recommended to
             keep at 224, like in training. Defaults to 256.
+        verbose (bool, optional): whether cellpose logs should be active.
+            Defaults to False.
     """
 
-    normalization: NormalizationParameters = NormalizationParameters()
+    normalization: AnyNormModel = DefaultNorm()
     batch_size: int = 8
     resample: bool = True
     invert: bool = False
@@ -155,6 +217,7 @@ class AdvancedCellposeParameters(BaseModel):
     augment: bool = False
     tile_overlap: float = 0.1
     bsize: int = 256
+    verbose: bool = False
 
     def to_eval_kwargs(self) -> dict:
         """Convert to dictionary of keyword arguments for cellpose.eval.

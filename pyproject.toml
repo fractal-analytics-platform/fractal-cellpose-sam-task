@@ -25,9 +25,9 @@ authors = [{ name = "Lorenzo Cerrone", email = "lorenzo.cerrone@uzh.ch" }]
 # Required Python version and dependencies
 requires-python = ">=3.11,<3.14"
 dependencies = [
-    "ngio>=0.4.1,<0.5",
+    "ngio==0.5.0a3",              # Remove pin after NGIO release
     "cellpose>=4.0.6,<5.0",
-    "fractal-task-tools>=0.0.14",
+    "fractal-task-tools==0.0.14",
 ]
 
 # Optional dependencies (e.g. for `pip install -e ".[dev]"`, see
