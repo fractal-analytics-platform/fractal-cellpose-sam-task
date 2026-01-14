@@ -4,7 +4,7 @@ import logging
 from typing import Optional
 
 import numpy as np
-from cellpose import core, io, models
+from cellpose import core, models
 from ngio import open_ome_zarr_container
 from ngio.experimental.iterators import MaskedSegmentationIterator, SegmentationIterator
 from ngio.images._masked_image import MaskedImage
@@ -17,6 +17,7 @@ from fractal_cellpose_sam_task.utils import (
     MaskingConfiguration,
 )
 
+logger = logging.getLogger(__name__)
 
 def segmentation_function(
     *,
@@ -75,7 +76,7 @@ def load_masked_image(
     else:
         masking_label_name = masking_configuration.identifier
         masking_table_name = None
-    logging.info(f"Using masking with {masking_table_name=}, {masking_label_name=}")
+    logger.info(f"Using masking with {masking_table_name=}, {masking_label_name=}")
 
     # Base Iterator with masking
     masked_image = ome_zarr.get_masked_image(
@@ -127,16 +128,15 @@ def cellpose_sam_segmentation_task(
             Defaults to True.
     """
     # Use the first of input_paths
-    logging.info(f"{zarr_url=}")
+    logger.info(f"{zarr_url=}")
 
     # Open the OME-Zarr container
     ome_zarr = open_ome_zarr_container(zarr_url)
-    logging.info(f"{ome_zarr=}")
-
+    logger.info(f"{ome_zarr=}")
     if label_name is None:
         label_name = f"{channels.identifiers[0]}_segmented"
     label = ome_zarr.derive_label(name=label_name, overwrite=overwrite)
-    logging.info(f"Output label image: {label=}")
+    logger.info(f"Output label image: {label=}")
 
     if iterator_configuration is None:
         iterator_configuration = IteratorConfiguration()
@@ -158,7 +158,7 @@ def cellpose_sam_segmentation_task(
     if iterator_configuration.masking is None:
         # Create a basic SegmentationIterator without masking
         image = ome_zarr.get_image(path=level_path)
-        logging.info(f"{image=}")
+        logger.info(f"{image=}")
         iterator = SegmentationIterator(
             input_image=image,
             output_label=label,
@@ -172,7 +172,7 @@ def cellpose_sam_segmentation_task(
             masking_configuration=iterator_configuration.masking,
             level_path=level_path,
         )
-        logging.info(f"{masked_image=}")
+        logger.info(f"{masked_image=}")
         # A masked iterator is created instead of a basic segmentation iterator
         # This will do two major things:
         # 1) It will iterate only over the regions of interest defined by the
@@ -188,7 +188,7 @@ def cellpose_sam_segmentation_task(
     # Strict=False means that if there no z axis or z is size 1, it will still work
     # If your segmentation needs requires a volume, use strict=True
     iterator = iterator.by_zyx(strict=False)
-    logging.info(f"Iterator created: {iterator=}")
+    logger.info(f"Iterator created: {iterator=}")
 
     if iterator_configuration.roi_table is not None:
         # If a ROI table is provided, we load it and use it to further restrict
@@ -196,14 +196,11 @@ def cellpose_sam_segmentation_task(
         # Be aware that this is not an alternative to masking
         # but only an additional restriction
         table = ome_zarr.get_generic_roi_table(name=iterator_configuration.roi_table)
-        logging.info(f"ROI table retrieved: {table=}")
+        logger.info(f"ROI table retrieved: {table=}")
         iterator = iterator.product(table)
-        logging.info(f"Iterator updated with ROI table: {iterator=}")
+        logger.info(f"Iterator updated with ROI table: {iterator=}")
 
     # Initialize Cellpose model
-
-    io.logger_setup()  # run this to get printing of progress
-
     # Check if colab notebook instance has GPU access
     if custom_model is None:
         custom_model = "cpsam"
@@ -215,7 +212,7 @@ def cellpose_sam_segmentation_task(
     #
     # Core processing loop
     #
-    logging.info("Starting processing...")
+    logger.info("Starting processing...")
     for image_data, writer in iterator.iter_as_numpy():
         label_img = segmentation_function(
             image_data=image_data,
@@ -229,7 +226,7 @@ def cellpose_sam_segmentation_task(
         max_label = label_img.max()
         writer(label_img)
 
-    logging.info(f"label {label_name} successfully created at {zarr_url}")
+    logger.info(f"label {label_name} successfully created at {zarr_url}")
     return None
 
 
