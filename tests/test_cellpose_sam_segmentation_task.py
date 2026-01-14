@@ -10,7 +10,9 @@ from fractal_cellpose_sam_task.cellpose_sam_segmentation_task import (
     cellpose_sam_segmentation_task,
 )
 from fractal_cellpose_sam_task.utils import (
+    AdvancedCellposeParameters,
     CellposeChannels,
+    CustomNorm,
     IteratorConfiguration,
     MaskingConfiguration,
 )
@@ -228,3 +230,32 @@ def test_roi_table_cropping_cellpose_sam_segmentation_task_no_mock(tmp_path: Pat
     label_data = ome_zarr.get_label("DAPI_0_segmented").get_as_numpy(axes_order="tyx")
     assert np.all(label_data[1, :, :] == 0), "Non-cropped region should be empty"
     assert np.any(label_data[0, :, :] > 0), "Cropped region should have some labels"
+
+
+def test_custom_norm_no_mock(tmp_path: Path):
+    """Base test for the cellpose segmentation task without mocking."""
+    test_data_path = tmp_path / "data.zarr"
+    shape = (1, 64, 64)
+    axes = "cyx"
+    channel_labels = ["DAPI_0"]
+
+    ome_zarr = create_synthetic_ome_zarr(
+        store=test_data_path,
+        shape=shape,
+        channels_meta=channel_labels,
+        overwrite=False,
+        axes_names=axes,
+    )
+
+    channel = CellposeChannels(mode="label", identifiers=["DAPI_0"])
+    advanced_params = AdvancedCellposeParameters(normalization=CustomNorm())
+    cellpose_sam_segmentation_task(
+        zarr_url=str(test_data_path),
+        channels=channel,
+        overwrite=False,
+        advanced_parameters=advanced_params,
+    )
+
+    # Check that the label image was created
+    assert "DAPI_0_segmented" in ome_zarr.list_labels()
+    check_label_quality(ome_zarr, "DAPI_0_segmented")
