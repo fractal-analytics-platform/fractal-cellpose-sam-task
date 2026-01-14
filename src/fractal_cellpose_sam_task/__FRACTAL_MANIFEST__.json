@@ -27,24 +27,30 @@
             "description": "Advanced Cellpose Model Parameters",
             "properties": {
               "normalization": {
-                "$ref": "#/$defs/NormalizationParameters",
                 "default": {
-                  "mode": "default",
-                  "lowhigh": [
-                    0.0,
-                    1.0
-                  ],
-                  "sharpen": 0.0,
-                  "normalize": true,
-                  "percentile": [
-                    1.0,
-                    99.0
-                  ],
-                  "tile_norm_blocksize": 0,
-                  "norm3D": false
+                  "mode": "default"
                 },
+                "discriminator": {
+                  "mapping": {
+                    "custom": "#/$defs/CustomNorm",
+                    "default": "#/$defs/DefaultNorm",
+                    "none": "#/$defs/NoNorm"
+                  },
+                  "propertyName": "mode"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/DefaultNorm"
+                  },
+                  {
+                    "$ref": "#/$defs/NoNorm"
+                  },
+                  {
+                    "$ref": "#/$defs/CustomNorm"
+                  }
+                ],
                 "title": "Normalization",
-                "description": "Normalization parameters. The normalization is applied before running the Cellpose model for each channel independently."
+                "description": "Normalization model to use. Options are DefaultNorm (use Cellpose default normalization), NoNorm (disable normalization), or CustomNorm (full control over normalization parameters). Defaults to DefaultNorm()."
               },
               "batch_size": {
                 "default": 8,
@@ -132,6 +138,12 @@
                 "title": "Bsize",
                 "type": "integer",
                 "description": "block size for tiles, recommended to keep at 224, like in training. Defaults to 256."
+              },
+              "verbose": {
+                "default": false,
+                "title": "Verbose",
+                "type": "boolean",
+                "description": "whether cellpose logs should be active. Defaults to False."
               }
             },
             "title": "AdvancedCellposeParameters",
@@ -163,6 +175,126 @@
               }
             },
             "title": "CellposeChannels",
+            "type": "object"
+          },
+          "CustomNorm": {
+            "description": "Custom Cellpose normalization.",
+            "properties": {
+              "mode": {
+                "const": "custom",
+                "default": "custom",
+                "title": "Mode",
+                "type": "string",
+                "description": "Literal[\"custom\"]: Use custom normalization with full control over parameters."
+              },
+              "normalize": {
+                "default": true,
+                "title": "Normalize",
+                "type": "boolean",
+                "description": "Whether to perform normalization. Defaults to True."
+              },
+              "norm3D": {
+                "default": false,
+                "title": "Norm3D",
+                "type": "boolean",
+                "description": "Whether to normalize in 3D. If True, the entire 3D stack will be normalized per channel. If False, normalization is applied per Z-slice. Defaults to False."
+              },
+              "invert": {
+                "default": false,
+                "title": "Invert",
+                "type": "boolean",
+                "description": "Whether to invert the image. Useful if cells are dark instead of bright. Defaults to False."
+              },
+              "use_lowhigh": {
+                "default": false,
+                "title": "Use Lowhigh",
+                "type": "boolean",
+                "description": "Whether to use lowhigh normalization. If False, percentile normalization will be used instead. Defaults to False."
+              },
+              "lowhigh": {
+                "default": [
+                  0.0,
+                  1000.0
+                ],
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "title": "Lowhigh",
+                "type": "array",
+                "description": "The lower and upper bounds for normalization. Can be a tuple of two values (applied to all channels) or an array of shape (nchan, 2) for per-channel normalization. Incompatible with smoothing and sharpening. Defaults to None."
+              },
+              "percentile": {
+                "default": [
+                  1.0,
+                  99.0
+                ],
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "title": "Percentile",
+                "type": "array",
+                "description": "The lower and upper percentiles for normalization. If provided, it should be a tuple of two values. Each value should be between 0 and 100. If use_lowhigh is True, this parameter is ignored. Defaults to (1.0, 99.0)."
+              },
+              "sharpen_radius": {
+                "default": 0.0,
+                "title": "Sharpen Radius",
+                "type": "number",
+                "description": "The radius for sharpening the image. Defaults to 0."
+              },
+              "smooth_radius": {
+                "default": 0.0,
+                "title": "Smooth Radius",
+                "type": "number",
+                "description": "The radius for smoothing the image. Defaults to 0."
+              },
+              "tile_norm_blocksize": {
+                "default": 0,
+                "title": "Tile Norm Blocksize",
+                "type": "integer",
+                "description": "The block size for tile-based normalization. Defaults to 0."
+              },
+              "tile_norm_smooth3D": {
+                "default": 1,
+                "title": "Tile Norm Smooth3D",
+                "type": "integer",
+                "description": "The smoothness factor for tile-based normalization in 3D. Defaults to 1."
+              },
+              "axis": {
+                "default": -1,
+                "title": "Axis",
+                "type": "integer",
+                "description": "The channel axis to loop over for normalization. Defaults to -1."
+              }
+            },
+            "title": "CustomNorm",
+            "type": "object"
+          },
+          "DefaultNorm": {
+            "description": "Default Cellpose normalization.",
+            "properties": {
+              "mode": {
+                "const": "default",
+                "default": "default",
+                "title": "Mode",
+                "type": "string",
+                "description": "Literal[\"default\"]: Use Cellpose default normalization (0-1 rescaling and 1%-99% percentile clipping). all other parameters are ignored."
+              }
+            },
+            "title": "DefaultNorm",
             "type": "object"
           },
           "IteratorConfiguration": {
@@ -204,84 +336,18 @@
             "title": "MaskingConfiguration",
             "type": "object"
           },
-          "NormalizationParameters": {
-            "description": "Normalization parameters for Cellpose.",
+          "NoNorm": {
+            "description": "Disable Cellpose normalization.",
             "properties": {
               "mode": {
-                "default": "default",
-                "enum": [
-                  "default",
-                  "custom",
-                  "none"
-                ],
+                "const": "none",
+                "default": "none",
                 "title": "Mode",
                 "type": "string",
-                "description": "Literal[\"default\", \"custom\", \"none\"]: - \"default\": use Cellpose default normalization (0-1 rescaling and 1%-99% percentile clipping). all other parameters are ignored. - \"none\": do not apply any normalization, and ignore all other parameters. - \"custom\": use custom normalization parameters as specified below."
-              },
-              "lowhigh": {
-                "default": [
-                  0.0,
-                  1.0
-                ],
-                "maxItems": 2,
-                "minItems": 2,
-                "prefixItems": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "number"
-                  }
-                ],
-                "title": "Lowhigh",
-                "type": "array",
-                "description": "pass in normalization values for 0.0 and 1.0 as list [low, high]"
-              },
-              "sharpen": {
-                "default": 0.0,
-                "title": "Sharpen",
-                "type": "number",
-                "description": "sharpen image with high pass filter, recommended to be 1/4-1/8 diameter of cells in pixels"
-              },
-              "normalize": {
-                "default": true,
-                "title": "Normalize",
-                "type": "boolean",
-                "description": "run normalization (if False, all following parameters ignored)"
-              },
-              "percentile": {
-                "default": [
-                  1.0,
-                  99.0
-                ],
-                "maxItems": 2,
-                "minItems": 2,
-                "prefixItems": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "number"
-                  }
-                ],
-                "title": "Percentile",
-                "type": "array",
-                "description": "pass in percentiles to use as list [perc_low, perc_high]"
-              },
-              "tile_norm_blocksize": {
-                "default": 0,
-                "title": "Tile Norm Blocksize",
-                "type": "integer",
-                "description": "compute normalization in tiles across image to brighten dark areas, to turn on set to window size in pixels (e.g. 100)"
-              },
-              "norm3D": {
-                "default": false,
-                "title": "Norm3D",
-                "type": "boolean",
-                "description": "compute normalization across entire z-stack rather than plane-by-plane in stitching mode."
+                "description": "Literal[\"none\"]: Do not apply any normalization, and ignore all other parameters."
               }
             },
-            "title": "NormalizationParameters",
+            "title": "NoNorm",
             "type": "object"
           }
         },
@@ -321,19 +387,7 @@
             "$ref": "#/$defs/AdvancedCellposeParameters",
             "default": {
               "normalization": {
-                "lowhigh": [
-                  0.0,
-                  1.0
-                ],
-                "mode": "default",
-                "norm3D": false,
-                "normalize": true,
-                "percentile": [
-                  1.0,
-                  99.0
-                ],
-                "sharpen": 0.0,
-                "tile_norm_blocksize": 0
+                "mode": "default"
               },
               "batch_size": 8,
               "resample": true,
@@ -349,7 +403,8 @@
               "niter": null,
               "augment": false,
               "tile_overlap": 0.1,
-              "bsize": 256
+              "bsize": 256,
+              "verbose": false
             },
             "title": "Advanced Parameters",
             "description": "Advanced parameters for Cellpose segmentation."
