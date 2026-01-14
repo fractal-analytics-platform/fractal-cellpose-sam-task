@@ -1,6 +1,7 @@
 """This is the Python module for my_task."""
 
 import logging
+import time
 from typing import Optional
 
 import numpy as np
@@ -18,6 +19,8 @@ from fractal_cellpose_sam_task.utils import (
 )
 
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
 
 def segmentation_function(
     *,
@@ -135,9 +138,13 @@ def cellpose_sam_segmentation_task(
     logger.info(f"{ome_zarr=}")
     if label_name is None:
         label_name = f"{channels.identifiers[0]}_segmented"
-    label = ome_zarr.derive_label(name=label_name, overwrite=overwrite)
-    logger.info(f"Output label image: {label=}")
 
+    # Derive the label and an get it at the specified level path
+    ome_zarr.derive_label(name=label_name, overwrite=overwrite)
+    label = ome_zarr.get_label(name=label_name, path=level_path)
+    logger.info(f"Derived label image: {label=}")
+
+    # Set up the appropriate iterator based on the configuration
     if iterator_configuration is None:
         iterator_configuration = IteratorConfiguration()
 
@@ -151,9 +158,6 @@ def cellpose_sam_segmentation_task(
     else:
         axes_order = "cyx"
         anisotropy = None
-
-    # Set up the appropriate iterator based on the configuration
-    label = ome_zarr.get_label(name=label_name, path=level_path)
 
     if iterator_configuration.masking is None:
         # Create a basic SegmentationIterator without masking
@@ -207,13 +211,21 @@ def cellpose_sam_segmentation_task(
 
     model = models.CellposeModel(gpu=core.use_gpu(), pretrained_model=custom_model)
 
+    if advanced_parameters.verbose:
+        logging.getLogger("cellpose").setLevel(logging.INFO)
+    else:
+        logging.getLogger("cellpose").setLevel(logging.WARNING)
     # Keep track of the maximum label to ensure unique across iterations
     max_label = 0
     #
     # Core processing loop
     #
     logger.info("Starting processing...")
-    for image_data, writer in iterator.iter_as_numpy():
+    run_times = []
+    num_rois = len(iterator.rois)
+    logging_step = max(1, num_rois // 10)
+    for it, (image_data, writer) in enumerate(iterator.iter_as_numpy()):
+        start_time = time.time()
         label_img = segmentation_function(
             image_data=image_data,
             model=model,
@@ -225,6 +237,16 @@ def cellpose_sam_segmentation_task(
         label_img = np.where(label_img == 0, 0, label_img + max_label)
         max_label = label_img.max()
         writer(label_img)
+        iteration_time = time.time() - start_time
+        run_times.append(iteration_time)
+
+        # Only log the progress every logging_step iterations
+        if it % logging_step == 0 or it == num_rois - 1:
+            avg_time = sum(run_times) / len(run_times)
+            logger.info(
+                f"Processed ROI {it + 1}/{num_rois} "
+                f"(avg time per ROI: {avg_time:.2f} s)"
+            )
 
     logger.info(f"label {label_name} successfully created at {zarr_url}")
     return None

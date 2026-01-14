@@ -137,6 +137,8 @@ class AdvancedCellposeParameters(BaseModel):
             when computing flows. Defaults to 0.1.
         bsize (int, optional): block size for tiles, recommended to
             keep at 224, like in training. Defaults to 256.
+        verbose (bool, optional): whether cellpose logs should be active.
+            Defaults to False.
     """
 
     normalization: NormalizationParameters = NormalizationParameters()
@@ -155,6 +157,7 @@ class AdvancedCellposeParameters(BaseModel):
     augment: bool = False
     tile_overlap: float = 0.1
     bsize: int = 256
+    verbose: bool = False
 
     def to_eval_kwargs(self) -> dict:
         """Convert to dictionary of keyword arguments for cellpose.eval.

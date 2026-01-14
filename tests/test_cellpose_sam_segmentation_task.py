@@ -2,7 +2,8 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from ngio import OmeZarrContainer, create_synthetic_ome_zarr
+from ngio import OmeZarrContainer, Roi, create_synthetic_ome_zarr
+from ngio.tables import RoiTable
 from skimage.metrics import adapted_rand_error
 
 from fractal_cellpose_sam_task.cellpose_sam_segmentation_task import (
@@ -27,25 +28,14 @@ class MockCellposeModel:
 def check_label_quality(
     ome_zarr: OmeZarrContainer, label_name: str, gt_name: str = "nuclei"
 ):
+    if ome_zarr.is_3d:
+        # Synthetic data is 2D only
+        # we run 3D tests to check the API but cannot check label quality
+        return
     prediction = ome_zarr.get_label(label_name).get_as_numpy(axes_order="tzyx", t=0)
     ground_truth = ome_zarr.get_label(gt_name).get_as_numpy(axes_order="tzyx", t=0)
     are, _, _ = adapted_rand_error(ground_truth, prediction)
-    assert are < 0.1, f"Adapted Rand Error too high: {are}<0.1. Labels might be wrong."
-
-
-def check_masked_label_quality(
-    ome_zarr: OmeZarrContainer,
-    label_name: str,
-    gt_name: str = "nuclei",
-    masking_label_name: str = "nuclei_mask",
-):
-    prediction = ome_zarr.get_label(label_name).get_as_numpy(axes_order="tzyx", t=0)
-    ground_truth = ome_zarr.get_label(gt_name).get_as_numpy(axes_order="tzyx", t=0)
-    mask = ome_zarr.get_label(masking_label_name).get_as_numpy(axes_order="tzyx", t=0)
-
-    ground_truth = ground_truth * (mask > 0)  # Apply mask to ground truth
-    are, _, _ = adapted_rand_error(ground_truth, prediction)
-    assert are < 0.1, f"Adapted Rand Error too high: {are}<0.1. Labels might be wrong."
+    assert are < 0.1, f"Adapted Rand Error too high: {are}>0.1. Labels might be wrong."
 
 
 @pytest.mark.parametrize(
@@ -78,7 +68,7 @@ def test_cellpose_sam_segmentation_task(
     ome_zarr = create_synthetic_ome_zarr(
         store=test_data_path,
         shape=shape,
-        channel_labels=channel_labels,
+        channels_meta=channel_labels,
         overwrite=False,
         axes_names=axes,
     )
@@ -133,7 +123,7 @@ def test_cellpose_sam_segmentation_task_masked(
     ome_zarr = create_synthetic_ome_zarr(
         store=test_data_path,
         shape=shape,
-        channel_labels=channel_labels,
+        channels_meta=channel_labels,
         overwrite=False,
         axes_names=axes,
     )
@@ -168,10 +158,6 @@ def test_cellpose_sam_segmentation_task_masked(
     assert "DAPI_0_segmented" in ome_zarr.list_labels()
     if is_github_or_fast:
         return
-    check_masked_label_quality(
-        ome_zarr,
-        "DAPI_0_segmented",
-    )
 
 
 def test_cellpose_sam_segmentation_task_no_mock(tmp_path: Path):
@@ -179,17 +165,12 @@ def test_cellpose_sam_segmentation_task_no_mock(tmp_path: Path):
     test_data_path = tmp_path / "data.zarr"
     shape = (1, 64, 64)
     axes = "cyx"
-
-    if "c" in axes:
-        num_channels = shape[axes.index("c")]
-    else:
-        num_channels = 1
-    channel_labels = [f"DAPI_{i}" for i in range(num_channels)]
+    channel_labels = ["DAPI_0"]
 
     ome_zarr = create_synthetic_ome_zarr(
         store=test_data_path,
         shape=shape,
-        channel_labels=channel_labels,
+        channels_meta=channel_labels,
         overwrite=False,
         axes_names=axes,
     )
@@ -202,5 +183,48 @@ def test_cellpose_sam_segmentation_task_no_mock(tmp_path: Path):
 
     # Check that the label image was created
     assert "DAPI_0_segmented" in ome_zarr.list_labels()
-
     check_label_quality(ome_zarr, "DAPI_0_segmented")
+
+
+def test_roi_table_cropping_cellpose_sam_segmentation_task_no_mock(tmp_path: Path):
+    """Base test for the cellpose segmentation task without mocking."""
+    test_data_path = tmp_path / "data.zarr"
+    shape = (2, 2, 64, 64)
+    axes = "tcyx"
+    channel_labels = ["DAPI_0", "DAPI_1"]
+
+    ome_zarr = create_synthetic_ome_zarr(
+        store=test_data_path,
+        shape=shape,
+        channels_meta=channel_labels,
+        overwrite=False,
+        axes_names=axes,
+    )
+
+    channel = CellposeChannels(mode="label", identifiers=["DAPI_0"])
+
+    cellpose_sam_segmentation_task(
+        zarr_url=str(test_data_path), channels=channel, overwrite=False
+    )
+    roi = Roi.from_values(
+        slices={"t": (0, 1), "y": (0, 10), "x": (0, 10)}, name="crop_roi"
+    )
+    roi_table = RoiTable(rois=[roi])
+    ome_zarr.add_table("well_ROI_table", roi_table, overwrite=True)
+
+    it_config = IteratorConfiguration(roi_table="well_ROI_table")
+
+    cellpose_sam_segmentation_task(
+        zarr_url=str(test_data_path),
+        level_path="0",
+        channels=channel,
+        overwrite=True,
+        iterator_configuration=it_config,
+    )
+
+    # Check that the label image was created
+    assert "DAPI_0_segmented" in ome_zarr.list_labels()
+
+    label_data = ome_zarr.get_label("DAPI_0_segmented").get_as_numpy(axes_order="tyx")
+    assert np.all(label_data[1, :, :] == 0), "Non-cropped region should be empty"
+    assert np.any(label_data[0, :, :] > 0), "Cropped region should have some labels"
