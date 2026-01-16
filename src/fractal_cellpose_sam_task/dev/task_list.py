@@ -47,6 +47,26 @@ INPUT_MODELS = [
         "utils.py",
         "CellposeChannels",
     ),
+    (
+        "fractal_cellpose_sam_task",
+        "pre_post_process.py",
+        "PrePostProcessConfiguration",
+    ),
+    (
+        "fractal_cellpose_sam_task",
+        "pre_post_process.py",
+        "GaussianFilter",
+    ),
+    (
+        "fractal_cellpose_sam_task",
+        "pre_post_process.py",
+        "MedianFilter",
+    ),
+    (
+        "fractal_cellpose_sam_task",
+        "pre_post_process.py",
+        "SizeFilter",
+    ),
 ]
 
 TASK_LIST = [
