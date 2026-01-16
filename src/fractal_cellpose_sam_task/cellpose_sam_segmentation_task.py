@@ -20,6 +20,7 @@ from fractal_cellpose_sam_task.utils import (
 
 logger = logging.getLogger(__name__)
 
+
 def segmentation_function(
     *,
     image_data: np.ndarray,
@@ -155,8 +156,7 @@ def cellpose_sam_segmentation_task(
         perc_diff_xy = abs(px_x - px_y) / max(px_x, px_y)
         if perc_diff_xy >= 0.01:
             logger.warning(
-                f"Non-isotropic pixel size in XY detected: "
-                f"px_x={px_x}, px_y={px_y}"
+                f"Non-isotropic pixel size in XY detected: px_x={px_x}, px_y={px_y}"
             )
         px_xy = (px_x + px_y) / 2.0
         anisotropy = px_z / px_xy
