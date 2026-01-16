@@ -48,8 +48,16 @@ class GaussianFilter(BaseModel):
                 self.sigma_xy,
             )
             return gaussian(image, sigma=sigma)  # type: ignore[call-arg] is correct
+        elif image.ndim == 4:
+            sigma = (
+                0,
+                self.sigma_z if self.sigma_z is not None else 0,
+                self.sigma_xy,
+                self.sigma_xy,
+            )
+            return gaussian(image, sigma=sigma)  # type: ignore[call-arg] is correct
         else:
-            raise ValueError("Input image must be 2D or 3D.")
+            raise ValueError("Input to Gaussian filter image must be 2D, 3D, or 4D.")
 
 
 class MedianFilter(BaseModel):
@@ -88,8 +96,16 @@ class MedianFilter(BaseModel):
                 self.size_xy,
             )
             return median(image, footprint=np.ones(size))
+        elif image.ndim == 4:
+            size = (
+                1,
+                self.size_z if self.size_z is not None else 1,
+                self.size_xy,
+                self.size_xy,
+            )
+            return median(image, footprint=np.ones(size))
         else:
-            raise ValueError("Input image must be 2D or 3D.")
+            raise ValueError("Input to median filter image must be 2D, 3D, or 4D.")
 
 
 PreProcess = Annotated[
@@ -118,7 +134,7 @@ class SizeFilter(BaseModel):
         Returns:
             np.ndarray: Size-filtered labeled image.
         """
-        return remove_small_objects(labels, min_size=self.min_size)
+        return remove_small_objects(labels, max_size=self.min_size)
 
 
 PostProcess = Annotated[
