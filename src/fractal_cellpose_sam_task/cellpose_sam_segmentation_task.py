@@ -19,8 +19,6 @@ from fractal_cellpose_sam_task.utils import (
 )
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
-
 
 def segmentation_function(
     *,
@@ -152,9 +150,16 @@ def cellpose_sam_segmentation_task(
     # If so we need to set the anisotropy factor
     if ome_zarr.is_3d:
         axes_order = "czyx"
-        pix_size_z, pix_size_xy = label.pixel_size.z, label.pixel_size.yx
-        assert pix_size_xy[0] == pix_size_xy[1], "Non-isotropic pixel size in XY"
-        anisotropy = pix_size_z / pix_size_xy[0]
+        px_z, (px_y, px_x) = label.pixel_size.z, label.pixel_size.yx
+        # Pixelsize must be isotropic in XY (to some extent)
+        perc_diff_xy = abs(px_x - px_y) / max(px_x, px_y)
+        if perc_diff_xy >= 0.01:
+            logger.warning(
+                f"Non-isotropic pixel size in XY detected: "
+                f"px_x={px_x}, px_y={px_y}"
+            )
+        px_xy = (px_x + px_y) / 2.0
+        anisotropy = px_z / px_xy
     else:
         axes_order = "cyx"
         anisotropy = None
