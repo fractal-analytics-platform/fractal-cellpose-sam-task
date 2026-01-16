@@ -11,9 +11,9 @@ from fractal_cellpose_sam_task.cellpose_sam_segmentation_task import (
 )
 from fractal_cellpose_sam_task.pre_post_process import (
     GaussianFilter,
-    MedianPreProcess,
+    MedianFilter,
     PrePostProcessConfiguration,
-    SizeFilterPostProcess,
+    SizeFilter,
 )
 from fractal_cellpose_sam_task.utils import (
     AdvancedCellposeParameters,
@@ -96,9 +96,9 @@ def test_cellpose_sam_segmentation_task(
     pre_post = PrePostProcessConfiguration(
         pre_process=[
             GaussianFilter(sigma_xy=1.0),
-            MedianPreProcess(size_xy=3),
+            MedianFilter(size_xy=3),
         ],
-        post_process=[SizeFilterPostProcess(min_size=10)],
+        post_process=[SizeFilter(min_size=10)],
     )
     cellpose_sam_segmentation_task(
         zarr_url=str(test_data_path),

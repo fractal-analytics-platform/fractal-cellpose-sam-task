@@ -33,7 +33,7 @@ def segmentation_function(
     parameters: AdvancedCellposeParameters,
     do_3D: bool,
     anisotropy: float | None,
-    pre_post_process: PrePostProcessConfiguration = PrePostProcessConfiguration(),  # noqa: B008
+    pre_post_process: PrePostProcessConfiguration,
 ) -> np.ndarray:
     """Wrap Cellpose segmentation call.
 
@@ -259,6 +259,7 @@ def cellpose_sam_segmentation_task(
             parameters=advanced_parameters,
             do_3D=ome_zarr.is_3d,
             anisotropy=anisotropy,
+            pre_post_process=pre_post_process,
         )
         # Ensure unique labels across different chunks
         label_img = np.where(label_img == 0, 0, label_img + max_label)
