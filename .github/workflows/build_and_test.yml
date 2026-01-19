@@ -33,6 +33,14 @@ jobs:
           python-version: ${{  matrix.python-version }}
           cache: "pip"
 
+      - name: Cache Cellpose models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cellpose
+          # The key uses the OS name and a hash of pyproject.toml
+          # Ideally we would also include the Cellpose version, but this will do
+          key: ${{ runner.os }}-cellpose-${{ hashFiles('**/pyproject.toml') }}
+
       - name: Install package
         run: python -m pip install -e .[test] --no-cache-dir
 
