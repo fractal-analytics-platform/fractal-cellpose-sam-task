@@ -1,9 +1,9 @@
 """Pydantic models for advanced iterator configuration."""
 
-from typing import Annotated, Literal, Optional, Union
+from typing import Annotated, Literal, Optional
 
 from ngio import ChannelSelectionModel
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class MaskingConfiguration(BaseModel):
@@ -147,9 +147,7 @@ class CustomNorm(BaseModel):
         }
 
 
-AnyNormModel = Annotated[
-    Union[DefaultNorm, NoNorm, CustomNorm], Field(discriminator="mode")
-]
+AnyNormModel = Annotated[DefaultNorm | NoNorm | CustomNorm, Field(discriminator="mode")]
 
 
 class AdvancedCellposeParameters(BaseModel):
@@ -265,6 +263,15 @@ class CellposeChannels(BaseModel):
 
     mode: Literal["label", "wavelength_id", "index"] = "label"
     identifiers: list[str] = Field(default_factory=list, min_length=1, max_length=3)
+
+    @field_validator("identifiers", mode="after")
+    @classmethod
+    def validate_identifiers(cls, value: list[str]) -> list[str]:
+        """Validate identifiers are non-empty"""
+        for identifier in value:
+            if not identifier:
+                raise ValueError("Identifiers must be non-empty strings.")
+        return value
 
     def to_list(self) -> list[ChannelSelectionModel]:
         """Convert to list of ChannelSelectionModel.

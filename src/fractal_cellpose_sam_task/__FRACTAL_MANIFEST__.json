@@ -297,6 +297,32 @@
             "title": "DefaultNorm",
             "type": "object"
           },
+          "GaussianFilter": {
+            "description": "Gaussian pre-processing configuration.",
+            "properties": {
+              "type": {
+                "const": "gaussian",
+                "default": "gaussian",
+                "title": "Type",
+                "type": "string",
+                "description": "Type of pre-processing."
+              },
+              "sigma_xy": {
+                "default": 2.0,
+                "exclusiveMinimum": 0,
+                "title": "Sigma Xy",
+                "type": "number",
+                "description": "Standard deviation for Gaussian kernel in XY plane."
+              },
+              "sigma_z": {
+                "title": "Sigma Z",
+                "type": "number",
+                "description": "Standard deviation for Gaussian kernel in Z axis. If not specified, no smoothing is applied in Z axis."
+              }
+            },
+            "title": "GaussianFilter",
+            "type": "object"
+          },
           "IteratorConfiguration": {
             "description": "Advanced Masking configuration.",
             "properties": {
@@ -336,6 +362,32 @@
             "title": "MaskingConfiguration",
             "type": "object"
           },
+          "MedianFilter": {
+            "description": "Median filter pre-processing configuration.",
+            "properties": {
+              "type": {
+                "const": "median",
+                "default": "median",
+                "title": "Type",
+                "type": "string",
+                "description": "Type of pre-processing."
+              },
+              "size_xy": {
+                "default": 2,
+                "exclusiveMinimum": 0,
+                "title": "Size Xy",
+                "type": "integer",
+                "description": "Size in pixels of the median filter in XY plane."
+              },
+              "size_z": {
+                "title": "Size Z",
+                "type": "integer",
+                "description": "Size in pixels of the median filter in Z axis. If not specified, no filtering is applied in Z axis."
+              }
+            },
+            "title": "MedianFilter",
+            "type": "object"
+          },
           "NoNorm": {
             "description": "Disable Cellpose normalization.",
             "properties": {
@@ -348,6 +400,76 @@
               }
             },
             "title": "NoNorm",
+            "type": "object"
+          },
+          "PrePostProcessConfiguration": {
+            "description": "Configuration for pre- and post-processing steps.",
+            "properties": {
+              "pre_process": {
+                "items": {
+                  "discriminator": {
+                    "mapping": {
+                      "gaussian": "#/$defs/GaussianFilter",
+                      "median": "#/$defs/MedianFilter"
+                    },
+                    "propertyName": "type"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/$defs/GaussianFilter"
+                    },
+                    {
+                      "$ref": "#/$defs/MedianFilter"
+                    }
+                  ]
+                },
+                "title": "Pre Process",
+                "type": "array",
+                "description": "List of pre-processing steps."
+              },
+              "post_process": {
+                "items": {
+                  "discriminator": {
+                    "mapping": {
+                      "size_filter": "#/$defs/SizeFilter"
+                    },
+                    "propertyName": "type"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/$defs/SizeFilter"
+                    }
+                  ]
+                },
+                "title": "Post Process",
+                "type": "array",
+                "description": "List of post-processing steps."
+              }
+            },
+            "title": "PrePostProcessConfiguration",
+            "type": "object"
+          },
+          "SizeFilter": {
+            "description": "Size filter post-processing configuration.",
+            "properties": {
+              "type": {
+                "const": "size_filter",
+                "default": "size_filter",
+                "title": "Type",
+                "type": "string",
+                "description": "Type of post-processing."
+              },
+              "min_size": {
+                "minimum": 0,
+                "title": "Min Size",
+                "type": "integer",
+                "description": "Minimum size in pixels for objects to keep."
+              }
+            },
+            "required": [
+              "min_size"
+            ],
+            "title": "SizeFilter",
             "type": "object"
           }
         },
@@ -408,6 +530,15 @@
             },
             "title": "Advanced Parameters",
             "description": "Advanced parameters for Cellpose segmentation."
+          },
+          "pre_post_process": {
+            "$ref": "#/$defs/PrePostProcessConfiguration",
+            "default": {
+              "pre_process": [],
+              "post_process": []
+            },
+            "title": "Pre Post Process",
+            "description": "Configuration for pre- and post-processing steps."
           },
           "overwrite": {
             "default": true,

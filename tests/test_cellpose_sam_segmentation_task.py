@@ -9,6 +9,12 @@ from skimage.metrics import adapted_rand_error
 from fractal_cellpose_sam_task.cellpose_sam_segmentation_task import (
     cellpose_sam_segmentation_task,
 )
+from fractal_cellpose_sam_task.pre_post_process import (
+    GaussianFilter,
+    MedianFilter,
+    PrePostProcessConfiguration,
+    SizeFilter,
+)
 from fractal_cellpose_sam_task.utils import (
     AdvancedCellposeParameters,
     CellposeChannels,
@@ -87,8 +93,18 @@ def test_cellpose_sam_segmentation_task(
             MockCellposeModel,
         )
 
+    pre_post = PrePostProcessConfiguration(
+        pre_process=[
+            GaussianFilter(sigma_xy=1.0),
+            MedianFilter(size_xy=3),
+        ],
+        post_process=[SizeFilter(min_size=10)],
+    )
     cellpose_sam_segmentation_task(
-        zarr_url=str(test_data_path), channels=channel, overwrite=False
+        zarr_url=str(test_data_path),
+        channels=channel,
+        overwrite=False,
+        pre_post_process=pre_post,
     )
 
     # Check that the label image was created

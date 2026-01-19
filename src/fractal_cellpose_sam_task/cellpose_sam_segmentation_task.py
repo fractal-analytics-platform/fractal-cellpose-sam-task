@@ -11,6 +11,11 @@ from ngio.experimental.iterators import MaskedSegmentationIterator, Segmentation
 from ngio.images._masked_image import MaskedImage
 from pydantic import validate_call
 
+from fractal_cellpose_sam_task.pre_post_process import (
+    PrePostProcessConfiguration,
+    apply_post_process,
+    apply_pre_process,
+)
 from fractal_cellpose_sam_task.utils import (
     AdvancedCellposeParameters,
     CellposeChannels,
@@ -19,7 +24,6 @@ from fractal_cellpose_sam_task.utils import (
 )
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 
 def segmentation_function(
@@ -28,7 +32,8 @@ def segmentation_function(
     model: models.CellposeModel,
     parameters: AdvancedCellposeParameters,
     do_3D: bool,
-    anisotropy: Optional[float] = None,
+    anisotropy: float | None,
+    pre_post_process: PrePostProcessConfiguration,
 ) -> np.ndarray:
     """Wrap Cellpose segmentation call.
 
@@ -39,10 +44,18 @@ def segmentation_function(
             Cellpose segmentation.
         do_3D (bool): Whether to perform 3D segmentation.
         anisotropy (Optional[float]): Anisotropy factor for z-axis scaling.
+        pre_post_process (PrePostProcessConfiguration): Configuration for pre- and
+            post-processing steps.
 
     Returns:
         np.ndarray: Segmented image
     """
+    # Pre-processing
+    image_data = apply_pre_process(
+        image=image_data,
+        pre_process_steps=pre_post_process.pre_process,
+    )
+
     z_axis = 1 if do_3D else None
 
     kwargs = parameters.to_eval_kwargs()
@@ -55,6 +68,11 @@ def segmentation_function(
         z_axis=z_axis,
         channel_axis=0,
         **kwargs,
+    )
+    # Post-processing
+    masks = apply_post_process(
+        labels=masks,
+        post_process_steps=pre_post_process.post_process,
     )
     masks = np.expand_dims(masks, axis=0).astype(np.uint32)
     return masks
@@ -104,6 +122,7 @@ def cellpose_sam_segmentation_task(
     custom_model: Optional[str] = None,
     # Cellpose parameters
     advanced_parameters: AdvancedCellposeParameters = AdvancedCellposeParameters(),  # noqa: B008
+    pre_post_process: PrePostProcessConfiguration = PrePostProcessConfiguration(),  # noqa: B008
     overwrite: bool = True,
 ) -> None:
     """Segment an image using Cellpose with SAM model.
@@ -127,6 +146,8 @@ def cellpose_sam_segmentation_task(
             set, the default "cpsam" model will be used.
         advanced_parameters (AdvancedCellposeParameters): Advanced parameters
             for Cellpose segmentation.
+        pre_post_process (PrePostProcessConfiguration): Configuration for pre- and
+            post-processing steps.
         overwrite (bool): Whether to overwrite an existing label image.
             Defaults to True.
     """
@@ -152,9 +173,15 @@ def cellpose_sam_segmentation_task(
     # If so we need to set the anisotropy factor
     if ome_zarr.is_3d:
         axes_order = "czyx"
-        pix_size_z, pix_size_xy = label.pixel_size.z, label.pixel_size.yx
-        assert pix_size_xy[0] == pix_size_xy[1], "Non-isotropic pixel size in XY"
-        anisotropy = pix_size_z / pix_size_xy[0]
+        px_z, (px_y, px_x) = label.pixel_size.z, label.pixel_size.yx
+        # Pixelsize must be isotropic in XY (to some extent)
+        perc_diff_xy = abs(px_x - px_y) / max(px_x, px_y)
+        if perc_diff_xy >= 0.01:
+            logger.warning(
+                f"Non-isotropic pixel size in XY detected: px_x={px_x}, px_y={px_y}"
+            )
+        px_xy = (px_x + px_y) / 2.0
+        anisotropy = px_z / px_xy
     else:
         axes_order = "cyx"
         anisotropy = None
@@ -232,6 +259,7 @@ def cellpose_sam_segmentation_task(
             parameters=advanced_parameters,
             do_3D=ome_zarr.is_3d,
             anisotropy=anisotropy,
+            pre_post_process=pre_post_process,
         )
         # Ensure unique labels across different chunks
         label_img = np.where(label_img == 0, 0, label_img + max_label)
