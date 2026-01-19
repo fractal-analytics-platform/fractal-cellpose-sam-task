@@ -28,13 +28,14 @@ dependencies = [
     "ngio==0.5.0b4",                  # Remove pin after NGIO release
     "cellpose>=4.0.6,<5.0",
     "fractal-task-tools>=0.1.1,<2.0",
+    "scikit-image",
 ]
 
 # Optional dependencies (e.g. for `pip install -e ".[dev]"`, see
 # https://peps.python.org/pep-0621/#dependencies-optional-dependencies)
 [project.optional-dependencies]
 
-test = ["pytest", "requests", "jsonschema", "devtools", "scikit-image"]
+test = ["pytest", "requests", "jsonschema", "devtools"]
 
 dev = [
     "notebook",
