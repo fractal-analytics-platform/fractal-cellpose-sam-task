@@ -1,6 +1,6 @@
 """Pydantic models for advanced iterator configuration."""
 
-from typing import Annotated, Literal, Optional, Union
+from typing import Annotated, Literal, Optional
 
 from ngio import ChannelSelectionModel
 from pydantic import BaseModel, Field
@@ -147,9 +147,7 @@ class CustomNorm(BaseModel):
         }
 
 
-AnyNormModel = Annotated[
-    Union[DefaultNorm, NoNorm, CustomNorm], Field(discriminator="mode")
-]
+AnyNormModel = Annotated[DefaultNorm | NoNorm | CustomNorm, Field(discriminator="mode")]
 
 
 class AdvancedCellposeParameters(BaseModel):

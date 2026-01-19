@@ -1,7 +1,7 @@
 """Pydantic models for advanced iterator configuration."""
 
 import logging
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal
 
 import numpy as np
 from pydantic import BaseModel, Field
@@ -109,7 +109,7 @@ class MedianFilter(BaseModel):
 
 
 PreProcess = Annotated[
-    Union[GaussianFilter, MedianFilter],
+    GaussianFilter | MedianFilter,
     Field(discriminator="type"),
 ]
 
