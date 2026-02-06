@@ -188,10 +188,10 @@
                 "description": "Literal[\"Create Masking ROI Table\"]: Mode to create masking ROI table."
               },
               "table_name": {
-                "default": "{label_name}_masking_roi_table",
+                "default": "{label_name}_masking_ROI_table",
                 "title": "Table Name",
                 "type": "string",
-                "description": "str: Name of the masking ROI table to be created. Defaults to \"{label_name}_masking_roi_table\", where {label_name} is the name of the label image used for segmentation."
+                "description": "str: Name of the masking ROI table to be created. Defaults to \"{label_name}_masking_ROI_table\", where {label_name} is the name of the label image used for segmentation."
               }
             },
             "title": "CreateMaskingRoiTable",
