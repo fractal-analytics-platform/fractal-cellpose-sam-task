@@ -156,13 +156,13 @@ class CreateMaskingRoiTable(BaseModel):
     Attributes:
         mode: Literal["Create Masking ROI Table"]: Mode to create masking ROI table.
         table_name: str: Name of the masking ROI table to be created.
-            Defaults to "{label_name}_masking_roi_table", where {label_name} is
+            Defaults to "{label_name}_masking_ROI_table", where {label_name} is
             the name of the label image used for segmentation.
 
     """
 
     mode: Literal["Create Masking ROI Table"] = "Create Masking ROI Table"
-    table_name: str = "{label_name}_masking_roi_table"
+    table_name: str = "{label_name}_masking_ROI_table"
 
     def get_table_name(self, label_name: str) -> str:
         """Get the actual table name by replacing placeholder.
