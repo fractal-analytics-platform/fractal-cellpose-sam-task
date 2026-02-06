@@ -177,6 +177,26 @@
             "title": "CellposeChannels",
             "type": "object"
           },
+          "CreateMaskingRoiTable": {
+            "description": "Create Masking ROI Table Configuration",
+            "properties": {
+              "mode": {
+                "const": "Create Masking ROI Table",
+                "default": "Create Masking ROI Table",
+                "title": "Mode",
+                "type": "string",
+                "description": "Literal[\"Create Masking ROI Table\"]: Mode to create masking ROI table."
+              },
+              "table_name": {
+                "default": "{label_name}_masking_ROI_table",
+                "title": "Table Name",
+                "type": "string",
+                "description": "str: Name of the masking ROI table to be created. Defaults to \"{label_name}_masking_ROI_table\", where {label_name} is the name of the label image used for segmentation."
+              }
+            },
+            "title": "CreateMaskingRoiTable",
+            "type": "object"
+          },
           "CustomNorm": {
             "description": "Custom Cellpose normalization.",
             "properties": {
@@ -471,6 +491,20 @@
             ],
             "title": "SizeFilter",
             "type": "object"
+          },
+          "SkipCreateMaskingRoiTable": {
+            "description": "Skip Creating Masking ROI Table Configuration",
+            "properties": {
+              "mode": {
+                "const": "Skip Creating Masking ROI Table",
+                "default": "Skip Creating Masking ROI Table",
+                "title": "Mode",
+                "type": "string",
+                "description": "Literal[\"Skip Creating Masking ROI Table\"]: Mode to skip creating masking ROI table"
+              }
+            },
+            "title": "SkipCreateMaskingRoiTable",
+            "type": "object"
           }
         },
         "additionalProperties": false,
@@ -539,6 +573,28 @@
             },
             "title": "Pre Post Process",
             "description": "Configuration for pre- and post-processing steps."
+          },
+          "create_masking_roi_table": {
+            "default": {
+              "mode": "Skip Creating Masking ROI Table"
+            },
+            "discriminator": {
+              "mapping": {
+                "Create Masking ROI Table": "#/$defs/CreateMaskingRoiTable",
+                "Skip Creating Masking ROI Table": "#/$defs/SkipCreateMaskingRoiTable"
+              },
+              "propertyName": "mode"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/CreateMaskingRoiTable"
+              },
+              {
+                "$ref": "#/$defs/SkipCreateMaskingRoiTable"
+              }
+            ],
+            "title": "Create Masking Roi Table",
+            "description": "Configuration to create a masking ROI table after segmentation."
           },
           "overwrite": {
             "default": true,

@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 from ngio import OmeZarrContainer, Roi, create_synthetic_ome_zarr
-from ngio.tables import RoiTable
+from ngio.tables import MaskingRoiTable, RoiTable
 from skimage.metrics import adapted_rand_error
 
 from fractal_cellpose_sam_task.cellpose_sam_segmentation_task import (
@@ -18,9 +18,11 @@ from fractal_cellpose_sam_task.pre_post_process import (
 from fractal_cellpose_sam_task.utils import (
     AdvancedCellposeParameters,
     CellposeChannels,
+    CreateMaskingRoiTable,
     CustomNorm,
     IteratorConfiguration,
     MaskingConfiguration,
+    SkipCreateMaskingRoiTable,
 )
 
 
@@ -58,7 +60,7 @@ def check_label_quality(
         ((1, 2, 64, 64), "czyx"),
         ((1, 1, 64, 64), "tzyx"),
         ((1, 3, 64, 64), "tcyx"),
-        ((2, 1, 2, 64, 64), "tczyx"),
+        ((2, 1, 1, 64, 64), "tczyx"),
     ],
 )
 def test_cellpose_sam_segmentation_task(
@@ -123,7 +125,7 @@ def test_cellpose_sam_segmentation_task(
         ((1, 2, 64, 64), "czyx"),
         ((1, 1, 64, 64), "tzyx"),
         ((1, 3, 64, 64), "tcyx"),
-        ((2, 1, 2, 64, 64), "tczyx"),
+        ((2, 1, 1, 64, 64), "tczyx"),
     ],
 )
 def test_cellpose_sam_segmentation_task_masked(
@@ -275,3 +277,45 @@ def test_custom_norm_no_mock(tmp_path: Path):
     # Check that the label image was created
     assert "DAPI_0_segmented" in ome_zarr.list_labels()
     check_label_quality(ome_zarr, "DAPI_0_segmented")
+
+
+def test_cellpose_sam_segmentation_with_masking_roi_table(tmp_path: Path):
+    """Base test for the cellpose segmentation task without mocking."""
+    test_data_path = tmp_path / "data.zarr"
+    shape = (1, 64, 64)
+    axes = "cyx"
+    channel_labels = ["DAPI_0"]
+
+    ome_zarr = create_synthetic_ome_zarr(
+        store=test_data_path,
+        shape=shape,
+        channels_meta=channel_labels,
+        overwrite=False,
+        axes_names=axes,
+    )
+
+    channel = CellposeChannels(mode="label", identifiers=["DAPI_0"])
+
+    cellpose_sam_segmentation_task(
+        zarr_url=str(test_data_path),
+        channels=channel,
+        overwrite=False,
+        create_masking_roi_table=SkipCreateMaskingRoiTable(),
+    )
+    assert "DAPI_0_segmented_masking_ROI_table" not in ome_zarr.list_tables()
+
+    cellpose_sam_segmentation_task(
+        zarr_url=str(test_data_path),
+        channels=channel,
+        overwrite=True,
+        create_masking_roi_table=CreateMaskingRoiTable(),
+    )
+    assert "DAPI_0_segmented_masking_ROI_table" in ome_zarr.list_tables()
+    table = ome_zarr.get_table("DAPI_0_segmented_masking_ROI_table")
+    assert isinstance(table, MaskingRoiTable)
+    assert len(table.rois()) == 5
+    expected_roi = ("name='1' "
+                    "slices=[x: 0.0->3.9000000000000004, y: 0.0->8.125, z: 0.0->1.0] "
+                    "label=1 space='world'"
+                    )
+    assert str(table.rois()[0]) == expected_roi

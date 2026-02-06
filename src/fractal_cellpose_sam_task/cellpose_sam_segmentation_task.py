@@ -18,9 +18,12 @@ from fractal_cellpose_sam_task.pre_post_process import (
 )
 from fractal_cellpose_sam_task.utils import (
     AdvancedCellposeParameters,
+    AnyCreateRoiTableModel,
     CellposeChannels,
+    CreateMaskingRoiTable,
     IteratorConfiguration,
     MaskingConfiguration,
+    SkipCreateMaskingRoiTable,
 )
 
 logger = logging.getLogger(__name__)
@@ -123,6 +126,7 @@ def cellpose_sam_segmentation_task(
     # Cellpose parameters
     advanced_parameters: AdvancedCellposeParameters = AdvancedCellposeParameters(),  # noqa: B008
     pre_post_process: PrePostProcessConfiguration = PrePostProcessConfiguration(),  # noqa: B008
+    create_masking_roi_table: AnyCreateRoiTableModel = SkipCreateMaskingRoiTable(),  # noqa: B008
     overwrite: bool = True,
 ) -> None:
     """Segment an image using Cellpose with SAM model.
@@ -148,6 +152,8 @@ def cellpose_sam_segmentation_task(
             for Cellpose segmentation.
         pre_post_process (PrePostProcessConfiguration): Configuration for pre- and
             post-processing steps.
+        create_masking_roi_table (AnyCreateMaskingRoiTableModel): Configuration to
+            create a masking ROI table after segmentation.
         overwrite (bool): Whether to overwrite an existing label image.
             Defaults to True.
     """
@@ -275,8 +281,13 @@ def cellpose_sam_segmentation_task(
                 f"Processed ROI {it + 1}/{num_rois} "
                 f"(avg time per ROI: {avg_time:.2f} s)"
             )
-
     logger.info(f"label {label_name} successfully created at {zarr_url}")
+
+    # Building a masking roi table
+    if isinstance(create_masking_roi_table, CreateMaskingRoiTable):
+        table_name = create_masking_roi_table.get_table_name(label_name=label_name)
+        masking_roi_table = label.build_masking_roi_table()
+        ome_zarr.add_table(name=table_name, table=masking_roi_table)
     return None
 
 
