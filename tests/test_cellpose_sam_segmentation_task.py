@@ -302,7 +302,7 @@ def test_cellpose_sam_segmentation_with_masking_roi_table(tmp_path: Path):
         overwrite=False,
         create_masking_roi_table=SkipCreateMaskingRoiTable(),
     )
-    assert "DAPI_0_segmented_masking_roi_table" not in ome_zarr.list_tables()
+    assert "DAPI_0_segmented_masking_ROI_table" not in ome_zarr.list_tables()
 
     cellpose_sam_segmentation_task(
         zarr_url=str(test_data_path),
@@ -310,8 +310,8 @@ def test_cellpose_sam_segmentation_with_masking_roi_table(tmp_path: Path):
         overwrite=True,
         create_masking_roi_table=CreateMaskingRoiTable(),
     )
-    assert "DAPI_0_segmented_masking_roi_table" in ome_zarr.list_tables()
-    table = ome_zarr.get_table("DAPI_0_segmented_masking_roi_table")
+    assert "DAPI_0_segmented_masking_ROI_table" in ome_zarr.list_tables()
+    table = ome_zarr.get_table("DAPI_0_segmented_masking_ROI_table")
     assert isinstance(table, MaskingRoiTable)
     assert len(table.rois()) == 5
     expected_roi = ("name='1' "
