@@ -150,6 +150,49 @@ class CustomNorm(BaseModel):
 AnyNormModel = Annotated[DefaultNorm | NoNorm | CustomNorm, Field(discriminator="mode")]
 
 
+class CreateMaskingRoiTable(BaseModel):
+    """Create Masking ROI Table Configuration
+
+    Attributes:
+        mode: Literal["Create Masking ROI Table"]: Mode to create masking ROI table.
+        table_name: str: Name of the masking ROI table to be created.
+            Defaults to "{label_name}_masking_roi_table", where {label_name} is
+            the name of the label image used for segmentation.
+
+    """
+
+    mode: Literal["Create Masking ROI Table"] = "Create Masking ROI Table"
+    table_name: str = "{label_name}_masking_roi_table"
+
+    def get_table_name(self, label_name: str) -> str:
+        """Get the actual table name by replacing placeholder.
+
+        Args:
+            label_name (str): Name of the label image used for segmentation.
+
+        Returns:
+            str: Actual name of the masking ROI table.
+        """
+        return self.table_name.format(label_name=label_name)
+
+
+class SkipCreateMaskingRoiTable(BaseModel):
+    """Skip Creating Masking ROI Table Configuration
+
+    Attributes:
+        mode: Literal["Skip Creating Masking ROI Table"]: Mode to skip creating masking
+            ROI table
+    """
+
+    mode: Literal["Skip Creating Masking ROI Table"] = "Skip Creating Masking ROI Table"
+
+
+AnyCreateRoiTableModel = Annotated[
+    CreateMaskingRoiTable | SkipCreateMaskingRoiTable,
+    Field(discriminator="mode"),
+]
+
+
 class AdvancedCellposeParameters(BaseModel):
     """Advanced Cellpose Model Parameters
 
@@ -239,7 +282,6 @@ class AdvancedCellposeParameters(BaseModel):
             "augment": self.augment,
             "tile_overlap": self.tile_overlap,
             "bsize": self.bsize,
-            # "interp": self.interp, TODO: interp only shown in the docstring
             "normalize": self.normalization.to_eval_kwargs(),
         }
         return kwargs

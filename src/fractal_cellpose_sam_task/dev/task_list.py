@@ -49,6 +49,16 @@ INPUT_MODELS = [
     ),
     (
         "fractal_cellpose_sam_task",
+        "utils.py",
+        "SkipCreateMaskingRoiTable",
+    ),
+    (
+        "fractal_cellpose_sam_task",
+        "utils.py",
+        "CreateMaskingRoiTable",
+    ),
+    (
+        "fractal_cellpose_sam_task",
         "pre_post_process.py",
         "PrePostProcessConfiguration",
     ),
