@@ -98,6 +98,12 @@
                 "type": "number",
                 "description": "for 3D segmentation, optional rescaling factor (e.g. set to 2.0 if Z is sampled half as dense as X or Y). Defaults to None."
               },
+              "do_3D": {
+                "default": true,
+                "title": "Do 3D",
+                "type": "boolean",
+                "description": "whether to perform 3D segmentation. If set to false for a 3D image, the image will be segmented by XY planes independently and then stitched together in 3D using the stitch_threshold parameter. If set to true for a 2D image, this will be ignored."
+              },
               "stitch_threshold": {
                 "default": 0.0,
                 "title": "Stitch Threshold",
@@ -553,6 +559,7 @@
               "cellprob_threshold": 0.0,
               "flow3D_smooth": 0,
               "anisotropy": null,
+              "do_3D": true,
               "stitch_threshold": 0.0,
               "min_size": 15,
               "max_size_fraction": 0.4,
