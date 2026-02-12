@@ -17,9 +17,8 @@ class GaussianFilter(BaseModel):
     Attributes:
         type (Literal["gaussian"]): Type of pre-processing.
         sigma_xy (float): Standard deviation for Gaussian kernel in XY plane.
-        sigma_z (Optional[float]): Standard deviation for Gaussian kernel in Z axis.
+        sigma_z (float | None): Standard deviation for Gaussian kernel in Z axis.
             If not specified, no smoothing is applied in Z axis.
-
     """
 
     type: Literal["gaussian"] = "gaussian"
@@ -66,7 +65,7 @@ class MedianFilter(BaseModel):
     Attributes:
         type (Literal["median"]): Type of pre-processing.
         size_xy (int): Size in pixels of the median filter in XY plane.
-        size_z (Optional[int]): Size in pixels of the median filter in Z axis.
+        size_z (int | None): Size in pixels of the median filter in Z axis.
             If not specified, no filtering is applied in Z axis.
     """
 
@@ -163,7 +162,7 @@ def apply_pre_process(
 
     Args:
         image (np.ndarray): Input image.
-        pre_process_steps (list[PreProcessModels]): List of pre-processing steps.
+        pre_process_steps (list[PreProcess]): List of pre-processing steps.
 
     Returns:
         np.ndarray: Pre-processed image.
@@ -181,7 +180,7 @@ def apply_post_process(
 
     Args:
         labels (np.ndarray): Labeled image.
-        post_process_steps (list[PostProcessModel]): List of post-processing steps.
+        post_process_steps (list[PostProcess]): List of post-processing steps.
 
     Returns:
         np.ndarray: Post-processed labeled image.

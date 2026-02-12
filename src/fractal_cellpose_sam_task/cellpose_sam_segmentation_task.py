@@ -2,7 +2,6 @@
 
 import logging
 import time
-from typing import Optional
 
 import numpy as np
 from cellpose import core, models
@@ -26,29 +25,63 @@ from fractal_cellpose_sam_task.utils import (
     SkipCreateMaskingRoiTable,
 )
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("cellpose_sam_task")
+
+
+def _setup_cellpose_kwargs(
+    is_3d: bool,
+    calculated_anisotropy: float | None,
+    cellpose_parameters: AdvancedCellposeParameters,
+) -> dict:
+    """Set up the keyword arguments for the Cellpose model evaluation.
+
+    This function determines the appropriate parameters to pass to the
+    Cellpose model based on whether 3D segmentation is being performed and
+    whether an anisotropy factor has been calculated.
+    """
+    kwargs = cellpose_parameters.to_eval_kwargs()
+    kwargs["z_axis"] = 1 if is_3d else None
+    if not is_3d:
+        # For 2D segmentation we need to set do_3D=False
+        # to avoid having to add a single Z plane dimension to the
+        # input and output
+        kwargs["do_3D"] = False
+    if (
+        is_3d
+        and not cellpose_parameters.do_3D
+        and cellpose_parameters.stitch_threshold == 0.0
+    ):
+        raise ValueError(
+            "For 3D images either do_3D must be set to True or "
+            "if do_3D is False, stitch_threshold must be greater than 0.0."
+        )
+    kwargs["channel_axis"] = 0
+    if cellpose_parameters.anisotropy is None:
+        kwargs["anisotropy"] = calculated_anisotropy
+
+    if cellpose_parameters.verbose:
+        logger.info("Cellpose evaluation parameters:")
+        for key, value in kwargs.items():
+            logger.info(f" {key}: {value}")
+    return kwargs
 
 
 def segmentation_function(
     *,
     image_data: np.ndarray,
     model: models.CellposeModel,
-    parameters: AdvancedCellposeParameters,
-    do_3D: bool,
-    anisotropy: float | None,
     pre_post_process: PrePostProcessConfiguration,
+    **kwargs,
 ) -> np.ndarray:
     """Wrap Cellpose segmentation call.
 
     Args:
         image_data (np.ndarray): Input image data
         model (models.CellposeModel): Preloaded Cellpose model.
-        parameters (AdvancedCellposeParameters): Advanced parameters for
-            Cellpose segmentation.
-        do_3D (bool): Whether to perform 3D segmentation.
-        anisotropy (Optional[float]): Anisotropy factor for z-axis scaling.
         pre_post_process (PrePostProcessConfiguration): Configuration for pre- and
             post-processing steps.
+        **kwargs: Additional keyword arguments to pass to the Cellpose model
+            evaluation function
 
     Returns:
         np.ndarray: Segmented image
@@ -58,18 +91,8 @@ def segmentation_function(
         image=image_data,
         pre_process_steps=pre_post_process.pre_process,
     )
-
-    z_axis = 1 if do_3D else None
-
-    kwargs = parameters.to_eval_kwargs()
-    if parameters.anisotropy is None:
-        # Replace anisotropy only if not set in parameters
-        kwargs["anisotropy"] = anisotropy
     masks, _, _ = model.eval(
         image_data,
-        do_3D=do_3D,
-        z_axis=z_axis,
-        channel_axis=0,
         **kwargs,
     )
     # Post-processing
@@ -84,14 +107,14 @@ def segmentation_function(
 def load_masked_image(
     ome_zarr,
     masking_configuration: MaskingConfiguration,
-    level_path: Optional[str] = None,
+    level_path: str | None = None,
 ) -> MaskedImage:
     """Load a masked image from an OME-Zarr based on the masking configuration.
 
     Args:
         ome_zarr: The OME-Zarr container.
         masking_configuration (MaskingConfiguration): Configuration for masking.
-        level_path (Optional[str]): Optional path to a specific resolution level.
+        level_path (str | None): Optional path to a specific resolution level.
 
     """
     if masking_configuration.mode == "Table Name":
@@ -111,6 +134,30 @@ def load_masked_image(
     return masked_image
 
 
+def _format_label_name(label_name_template: str, channel_identifier: str) -> str:
+    """Format the label name based on the provided template and channel identifier.
+
+    Args:
+        label_name_template (str): The template for the label name. This
+        might contain a placeholder "{channel_identifier}" which will be replaced
+        by the channel identifier or no placeholder at all,
+        in which case the channel identifier will be ignored.
+        channel_identifier (str): The channel identifier to insert into the
+            label name template.
+
+    Returns:
+        str: The formatted label name.
+    """
+    try:
+        label_name = label_name_template.format(channel_identifier=channel_identifier)
+    except KeyError as e:
+        raise ValueError(
+            "Label Name format error only allowed placeholder is "
+            f"'channel_identifier'. {{{e}}} was provided."
+        ) from e
+    return label_name
+
+
 @validate_call
 def cellpose_sam_segmentation_task(
     *,
@@ -118,11 +165,11 @@ def cellpose_sam_segmentation_task(
     zarr_url: str,
     # Segmentation parameters
     channels: CellposeChannels,
-    label_name: Optional[str] = None,
-    level_path: Optional[str] = None,
+    label_name: str = "{channel_identifier}_segmented",
+    level_path: str | None = None,
     # Iteration parameters
-    iterator_configuration: Optional[IteratorConfiguration] = None,
-    custom_model: Optional[str] = None,
+    iterator_configuration: IteratorConfiguration | None = None,
+    custom_model: str | None = None,
     # Cellpose parameters
     advanced_parameters: AdvancedCellposeParameters = AdvancedCellposeParameters(),  # noqa: B008
     pre_post_process: PrePostProcessConfiguration = PrePostProcessConfiguration(),  # noqa: B008
@@ -138,21 +185,22 @@ def cellpose_sam_segmentation_task(
         zarr_url (str): URL to the OME-Zarr container
         channels (CellposeChannels): Channels to use for segmentation.
             It must contain between 1 and 3 channel identifiers.
-        label_name (Optional[str]): Name of the resulting label image. If not provided,
-            it will be set to "<channel_identifier>_segmented".
-        level_path (Optional[str]): If the OME-Zarr has multiple resolution levels,
+        label_name (str): Name of the resulting label image. Optionally, it can contain
+            a placeholder "{channel_identifier}" which will be replaced by the
+            first channel identifier specified in the channels parameter.
+        level_path (str | None): If the OME-Zarr has multiple resolution levels,
             the level to use can be specified here. If not provided, the highest
             resolution level will be used.
-        iterator_configuration (Optional[IteratorConfiguration]): Configuration
+        iterator_configuration (IteratorConfiguration | None): Configuration
             for the segmentation iterator. This can be used to specify masking
             and/or a ROI table.
-        custom_model (Optional[str]): Path to a custom Cellpose model. If not
+        custom_model (str | None): Path to a custom Cellpose model. If not
             set, the default "cpsam" model will be used.
         advanced_parameters (AdvancedCellposeParameters): Advanced parameters
             for Cellpose segmentation.
         pre_post_process (PrePostProcessConfiguration): Configuration for pre- and
             post-processing steps.
-        create_masking_roi_table (AnyCreateMaskingRoiTableModel): Configuration to
+        create_masking_roi_table (AnyCreateRoiTableModel): Configuration to
             create a masking ROI table after segmentation.
         overwrite (bool): Whether to overwrite an existing label image.
             Defaults to True.
@@ -163,8 +211,11 @@ def cellpose_sam_segmentation_task(
     # Open the OME-Zarr container
     ome_zarr = open_ome_zarr_container(zarr_url)
     logger.info(f"{ome_zarr=}")
-    if label_name is None:
-        label_name = f"{channels.identifiers[0]}_segmented"
+    # Format the label name based on the provided template and channel identifier
+    label_name = _format_label_name(
+        label_name_template=label_name, channel_identifier=channels.identifiers[0]
+    )
+    logger.info(f"Formatted label name: {label_name=}")
 
     # Derive the label and an get it at the specified level path
     ome_zarr.derive_label(name=label_name, overwrite=overwrite)
@@ -188,9 +239,14 @@ def cellpose_sam_segmentation_task(
             )
         px_xy = (px_x + px_y) / 2.0
         anisotropy = px_z / px_xy
+        logger.info(
+            "Anisotropy factor calculated: "
+            f"(px_z={px_z} / px_xy={px_xy}) = {anisotropy}"
+        )
     else:
         axes_order = "cyx"
         anisotropy = None
+    logger.info(f"Segmenting using {axes_order=}")
 
     if iterator_configuration.masking is None:
         # Create a basic SegmentationIterator without masking
@@ -248,6 +304,11 @@ def cellpose_sam_segmentation_task(
         logging.getLogger("cellpose").setLevel(logging.INFO)
     else:
         logging.getLogger("cellpose").setLevel(logging.WARNING)
+    cellpose_kwargs = _setup_cellpose_kwargs(
+        is_3d=ome_zarr.is_3d,
+        calculated_anisotropy=anisotropy,
+        cellpose_parameters=advanced_parameters,
+    )
     # Keep track of the maximum label to ensure unique across iterations
     max_label = 0
     #
@@ -262,10 +323,8 @@ def cellpose_sam_segmentation_task(
         label_img = segmentation_function(
             image_data=image_data,
             model=model,
-            parameters=advanced_parameters,
-            do_3D=ome_zarr.is_3d,
-            anisotropy=anisotropy,
             pre_post_process=pre_post_process,
+            **cellpose_kwargs,
         )
         # Ensure unique labels across different chunks
         label_img = np.where(label_img == 0, 0, label_img + max_label)
