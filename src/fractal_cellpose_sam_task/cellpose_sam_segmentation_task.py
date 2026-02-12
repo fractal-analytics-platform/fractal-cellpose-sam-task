@@ -29,26 +29,47 @@ from fractal_cellpose_sam_task.utils import (
 logger = logging.getLogger(__name__)
 
 
+def _setup_cellpose_kwargs(
+    is_3d: bool,
+    calculated_anisotropy: float | None,
+    cellpose_parameters: AdvancedCellposeParameters,
+) -> dict:
+    """Set up the keyword arguments for the Cellpose model evaluation.
+
+    This function determines the appropriate parameters to pass to the
+    Cellpose model based on whether 3D segmentation is being performed and
+    whether an anisotropy factor has been calculated.
+    """
+    kwargs = cellpose_parameters.to_eval_kwargs()
+    kwargs["do_3D"] = is_3d
+    kwargs["z_axis"] = 1 if is_3d else None
+    kwargs["channel_axis"] = 0
+    if cellpose_parameters.anisotropy is None:
+        kwargs["anisotropy"] = calculated_anisotropy
+
+    if cellpose_parameters.verbose:
+        logger.info("Cellpose evaluation parameters:")
+        for key, value in kwargs.items():
+            logger.info(f"  {key}: {value}")
+    return kwargs
+
+
 def segmentation_function(
     *,
     image_data: np.ndarray,
     model: models.CellposeModel,
-    parameters: AdvancedCellposeParameters,
-    do_3D: bool,
-    anisotropy: float | None,
     pre_post_process: PrePostProcessConfiguration,
+    **kwargs,
 ) -> np.ndarray:
     """Wrap Cellpose segmentation call.
 
     Args:
         image_data (np.ndarray): Input image data
         model (models.CellposeModel): Preloaded Cellpose model.
-        parameters (AdvancedCellposeParameters): Advanced parameters for
-            Cellpose segmentation.
-        do_3D (bool): Whether to perform 3D segmentation.
-        anisotropy (Optional[float]): Anisotropy factor for z-axis scaling.
         pre_post_process (PrePostProcessConfiguration): Configuration for pre- and
             post-processing steps.
+        **kwargs: Additional keyword arguments to pass to the Cellpose model
+            evaluation function
 
     Returns:
         np.ndarray: Segmented image
@@ -58,18 +79,8 @@ def segmentation_function(
         image=image_data,
         pre_process_steps=pre_post_process.pre_process,
     )
-
-    z_axis = 1 if do_3D else None
-
-    kwargs = parameters.to_eval_kwargs()
-    if parameters.anisotropy is None:
-        # Replace anisotropy only if not set in parameters
-        kwargs["anisotropy"] = anisotropy
     masks, _, _ = model.eval(
         image_data,
-        do_3D=do_3D,
-        z_axis=z_axis,
-        channel_axis=0,
         **kwargs,
     )
     # Post-processing
@@ -188,10 +199,14 @@ def cellpose_sam_segmentation_task(
             )
         px_xy = (px_x + px_y) / 2.0
         anisotropy = px_z / px_xy
+        logger.info(
+            "Anisotropy factor calculated: "
+            f"(px_z={px_z} / px_xy={px_xy}) = {anisotropy}"
+        )
     else:
         axes_order = "cyx"
         anisotropy = None
-    logger.info(f"Segmenting using {axes_order=} and {anisotropy=}")
+    logger.info(f"Segmenting using {axes_order=}")
 
     if iterator_configuration.masking is None:
         # Create a basic SegmentationIterator without masking
@@ -249,6 +264,11 @@ def cellpose_sam_segmentation_task(
         logging.getLogger("cellpose").setLevel(logging.INFO)
     else:
         logging.getLogger("cellpose").setLevel(logging.WARNING)
+    cellpose_kwargs = _setup_cellpose_kwargs(
+        is_3d=ome_zarr.is_3d,
+        calculated_anisotropy=anisotropy,
+        cellpose_parameters=advanced_parameters,
+    )
     # Keep track of the maximum label to ensure unique across iterations
     max_label = 0
     #
@@ -263,10 +283,8 @@ def cellpose_sam_segmentation_task(
         label_img = segmentation_function(
             image_data=image_data,
             model=model,
-            parameters=advanced_parameters,
-            do_3D=ome_zarr.is_3d,
-            anisotropy=anisotropy,
             pre_post_process=pre_post_process,
+            **cellpose_kwargs,
         )
         # Ensure unique labels across different chunks
         label_img = np.where(label_img == 0, 0, label_img + max_label)
