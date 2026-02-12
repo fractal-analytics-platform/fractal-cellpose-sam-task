@@ -529,9 +529,10 @@
             "description": "Channels to use for segmentation. It must contain between 1 and 3 channel identifiers."
           },
           "label_name": {
+            "default": "{channel_identifier}_segmented",
             "title": "Label Name",
             "type": "string",
-            "description": "Name of the resulting label image. If not provided, it will be set to \"<channel_identifier>_segmented\"."
+            "description": "Name of the resulting label image. Optionally, it can contain a placeholder \"{channel_identifier}\" which will be replaced by the first channel identifier specified in the channels parameter."
           },
           "level_path": {
             "title": "Level Path",

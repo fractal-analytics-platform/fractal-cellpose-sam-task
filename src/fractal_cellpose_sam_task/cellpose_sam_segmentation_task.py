@@ -134,6 +134,30 @@ def load_masked_image(
     return masked_image
 
 
+def _format_label_name(label_name_template: str, channel_identifier: str) -> str:
+    """Format the label name based on the provided template and channel identifier.
+
+    Args:
+        label_name_template (str): The template for the label name. This
+        might contain a placeholder "{channel_identifier}" which will be replaced
+        by the channel identifier or no placeholder at all,
+        in which case the channel identifier will be ignored.
+        channel_identifier (str): The channel identifier to insert into the
+            label name template.
+
+    Returns:
+        str: The formatted label name.
+    """
+    try:
+        label_name = label_name_template.format(channel_identifier=channel_identifier)
+    except KeyError as e:
+        raise ValueError(
+            "Label Name format error only allowed placeholder is "
+            f"'channel_identifier'. {{{e}}} was provided."
+        ) from e
+    return label_name
+
+
 @validate_call
 def cellpose_sam_segmentation_task(
     *,
@@ -141,7 +165,7 @@ def cellpose_sam_segmentation_task(
     zarr_url: str,
     # Segmentation parameters
     channels: CellposeChannels,
-    label_name: str | None = None,
+    label_name: str = "{channel_identifier}_segmented",
     level_path: str | None = None,
     # Iteration parameters
     iterator_configuration: IteratorConfiguration | None = None,
@@ -161,8 +185,9 @@ def cellpose_sam_segmentation_task(
         zarr_url (str): URL to the OME-Zarr container
         channels (CellposeChannels): Channels to use for segmentation.
             It must contain between 1 and 3 channel identifiers.
-        label_name (str | None): Name of the resulting label image. If not provided,
-            it will be set to "<channel_identifier>_segmented".
+        label_name (str): Name of the resulting label image. Optionally, it can contain
+            a placeholder "{channel_identifier}" which will be replaced by the
+            first channel identifier specified in the channels parameter.
         level_path (str | None): If the OME-Zarr has multiple resolution levels,
             the level to use can be specified here. If not provided, the highest
             resolution level will be used.
@@ -186,8 +211,11 @@ def cellpose_sam_segmentation_task(
     # Open the OME-Zarr container
     ome_zarr = open_ome_zarr_container(zarr_url)
     logger.info(f"{ome_zarr=}")
-    if label_name is None:
-        label_name = f"{channels.identifiers[0]}_segmented"
+    # Format the label name based on the provided template and channel identifier
+    label_name = _format_label_name(
+        label_name_template=label_name, channel_identifier=channels.identifiers[0]
+    )
+    logger.info(f"Formatted label name: {label_name=}")
 
     # Derive the label and an get it at the specified level path
     ome_zarr.derive_label(name=label_name, overwrite=overwrite)
