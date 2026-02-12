@@ -180,6 +180,9 @@
                 "description": "Unique identifier for the channel. This can be a channel label, wavelength ID, or index."
               }
             },
+            "required": [
+              "identifiers"
+            ],
             "title": "CellposeChannels",
             "type": "object"
           },

@@ -310,7 +310,7 @@ class CellposeChannels(BaseModel):
     """
 
     mode: Literal["label", "wavelength_id", "index"] = "label"
-    identifiers: list[str] = Field(default_factory=list, min_length=1, max_length=3)
+    identifiers: list[str] = Field(min_length=1, max_length=3)
 
     @field_validator("identifiers", mode="after")
     @classmethod
