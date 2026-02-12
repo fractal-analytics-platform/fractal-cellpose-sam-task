@@ -2,7 +2,6 @@
 
 import logging
 import time
-from typing import Optional
 
 import numpy as np
 from cellpose import core, models
@@ -108,14 +107,14 @@ def segmentation_function(
 def load_masked_image(
     ome_zarr,
     masking_configuration: MaskingConfiguration,
-    level_path: Optional[str] = None,
+    level_path: str | None = None,
 ) -> MaskedImage:
     """Load a masked image from an OME-Zarr based on the masking configuration.
 
     Args:
         ome_zarr: The OME-Zarr container.
         masking_configuration (MaskingConfiguration): Configuration for masking.
-        level_path (Optional[str]): Optional path to a specific resolution level.
+        level_path (str | None): Optional path to a specific resolution level.
 
     """
     if masking_configuration.mode == "Table Name":
@@ -142,11 +141,11 @@ def cellpose_sam_segmentation_task(
     zarr_url: str,
     # Segmentation parameters
     channels: CellposeChannels,
-    label_name: Optional[str] = None,
-    level_path: Optional[str] = None,
+    label_name: str | None = None,
+    level_path: str | None = None,
     # Iteration parameters
-    iterator_configuration: Optional[IteratorConfiguration] = None,
-    custom_model: Optional[str] = None,
+    iterator_configuration: IteratorConfiguration | None = None,
+    custom_model: str | None = None,
     # Cellpose parameters
     advanced_parameters: AdvancedCellposeParameters = AdvancedCellposeParameters(),  # noqa: B008
     pre_post_process: PrePostProcessConfiguration = PrePostProcessConfiguration(),  # noqa: B008
@@ -162,21 +161,21 @@ def cellpose_sam_segmentation_task(
         zarr_url (str): URL to the OME-Zarr container
         channels (CellposeChannels): Channels to use for segmentation.
             It must contain between 1 and 3 channel identifiers.
-        label_name (Optional[str]): Name of the resulting label image. If not provided,
+        label_name (str | None): Name of the resulting label image. If not provided,
             it will be set to "<channel_identifier>_segmented".
-        level_path (Optional[str]): If the OME-Zarr has multiple resolution levels,
+        level_path (str | None): If the OME-Zarr has multiple resolution levels,
             the level to use can be specified here. If not provided, the highest
             resolution level will be used.
-        iterator_configuration (Optional[IteratorConfiguration]): Configuration
+        iterator_configuration (IteratorConfiguration | None): Configuration
             for the segmentation iterator. This can be used to specify masking
             and/or a ROI table.
-        custom_model (Optional[str]): Path to a custom Cellpose model. If not
+        custom_model (str | None): Path to a custom Cellpose model. If not
             set, the default "cpsam" model will be used.
         advanced_parameters (AdvancedCellposeParameters): Advanced parameters
             for Cellpose segmentation.
         pre_post_process (PrePostProcessConfiguration): Configuration for pre- and
             post-processing steps.
-        create_masking_roi_table (AnyCreateMaskingRoiTableModel): Configuration to
+        create_masking_roi_table (AnyCreateRoiTableModel): Configuration to
             create a masking ROI table after segmentation.
         overwrite (bool): Whether to overwrite an existing label image.
             Defaults to True.

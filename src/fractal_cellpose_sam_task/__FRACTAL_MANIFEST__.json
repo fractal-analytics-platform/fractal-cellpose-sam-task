@@ -24,7 +24,7 @@
       "args_schema_parallel": {
         "$defs": {
           "AdvancedCellposeParameters": {
-            "description": "Advanced Cellpose Model Parameters",
+            "description": "Advanced Cellpose Model Parameters.",
             "properties": {
               "normalization": {
                 "default": {
@@ -56,100 +56,100 @@
                 "default": 8,
                 "title": "Batch Size",
                 "type": "integer",
-                "description": "number of 256x256 patches to run simultaneously on the GPU (can make smaller or bigger depending on GPU memory usage). Defaults to 8."
+                "description": "Number of 256x256 patches to run simultaneously on the GPU (can make smaller or bigger depending on GPU memory usage). Defaults to 8."
               },
               "resample": {
                 "default": true,
                 "title": "Resample",
                 "type": "boolean",
-                "description": "run dynamics at original image size (will be slower but create more accurate boundaries). Defaults to True."
+                "description": "Run dynamics at original image size (will be slower but create more accurate boundaries). Defaults to True."
               },
               "invert": {
                 "default": false,
                 "title": "Invert",
                 "type": "boolean",
-                "description": "invert image pixel intensity before running network. Defaults to False."
+                "description": "Invert image pixel intensity before running network. Defaults to False."
               },
               "diameter": {
                 "title": "Diameter",
                 "type": "number",
-                "description": "diameters are used to rescale the image to 30 pix cell diameter."
+                "description": "Diameter used to rescale the image to 30 pix cell diameter. Defaults to None."
               },
               "flow_threshold": {
                 "default": 0.4,
                 "title": "Flow Threshold",
                 "type": "number",
-                "description": "flow error threshold (all cells with errors below threshold are kept) (not used for 3D). Defaults to 0.4."
+                "description": "Flow error threshold (all cells with errors below threshold are kept) (not used for 3D). Defaults to 0.4."
               },
               "cellprob_threshold": {
                 "default": 0.0,
                 "title": "Cellprob Threshold",
                 "type": "number",
-                "description": "all pixels with value above threshold kept for masks, decrease to find more and larger masks. Defaults to 0.0."
+                "description": "All pixels with value above threshold kept for masks, decrease to find more and larger masks. Defaults to 0.0."
               },
               "flow3D_smooth": {
                 "default": 0,
                 "title": "Flow3D Smooth",
                 "type": "integer",
-                "description": "if do_3D and flow3D_smooth>0, smooth flows with gaussian filter of this stddev. Defaults to 0."
+                "description": "If do_3D and flow3D_smooth>0, smooth flows with gaussian filter of this stddev. Defaults to 0."
               },
               "anisotropy": {
                 "title": "Anisotropy",
                 "type": "number",
-                "description": "for 3D segmentation, optional rescaling factor (e.g. set to 2.0 if Z is sampled half as dense as X or Y). Defaults to None."
+                "description": "For 3D segmentation, rescaling factor (e.g. set to 2.0 if Z is sampled half as dense as X or Y). Defaults to None."
               },
               "do_3D": {
                 "default": true,
                 "title": "Do 3D",
                 "type": "boolean",
-                "description": "whether to perform 3D segmentation. If set to false for a 3D image, the image will be segmented by XY planes independently and then stitched together in 3D using the stitch_threshold parameter. If set to true for a 2D image, this will be ignored."
+                "description": "Whether to perform 3D segmentation. If set to False for a 3D image, the image will be segmented by XY planes independently and then stitched together in 3D using the stitch_threshold parameter. If set to True for a 2D image, this will be ignored."
               },
               "stitch_threshold": {
                 "default": 0.0,
                 "title": "Stitch Threshold",
                 "type": "number",
-                "description": "if stitch_threshold>0.0 and not do_3D, masks are stitched in 3D to return volume segmentation. Defaults to 0.0."
+                "description": "If stitch_threshold>0.0 and not do_3D, masks are stitched in 3D to return volume segmentation. Defaults to 0.0."
               },
               "min_size": {
                 "default": 15,
                 "title": "Min Size",
                 "type": "integer",
-                "description": "all ROIs below this size, in pixels, will be discarded. Defaults to 15."
+                "description": "All ROIs below this size, in pixels, will be discarded. Defaults to 15."
               },
               "max_size_fraction": {
                 "default": 0.4,
                 "title": "Max Size Fraction",
                 "type": "number",
-                "description": "max_size_fraction (float, optional): Masks larger than max_size_fraction of total image size are removed. Default is 0.4."
+                "description": "Masks larger than max_size_fraction of total image size are removed. Defaults to 0.4."
               },
               "niter": {
                 "title": "Niter",
                 "type": "integer",
-                "description": "number of iterations for dynamics computation if None, it is set proportional to the diameter. Defaults to None."
+                "description": "Number of iterations for dynamics computation. If None, it is set proportional to the diameter. Defaults to None."
               },
               "augment": {
                 "default": false,
                 "title": "Augment",
                 "type": "boolean",
-                "description": "tiles image with overlapping tiles and flips overlapped regions to augment. Defaults to False."
+                "description": "Tiles image with overlapping tiles and flips overlapped regions to augment. Defaults to False."
               },
               "tile_overlap": {
                 "default": 0.1,
                 "title": "Tile Overlap",
                 "type": "number",
-                "description": "fraction of overlap of tiles when computing flows. Defaults to 0.1."
+                "description": "Fraction of overlap of tiles when computing flows. Defaults to 0.1."
               },
               "bsize": {
                 "default": 256,
                 "title": "Bsize",
                 "type": "integer",
-                "description": "block size for tiles, recommended to keep at 224, like in training. Defaults to 256."
+                "description": "Block size for tiles, recommended to keep at 224, like in training. Defaults to 256."
               },
               "verbose": {
                 "default": false,
                 "title": "Verbose",
                 "type": "boolean",
-                "description": "whether cellpose logs should be active. Defaults to False."
+                "description": "Whether cellpose logs should be active. Defaults to False."
               }
             },
             "title": "AdvancedCellposeParameters",
@@ -167,7 +167,7 @@
                 ],
                 "title": "Mode",
                 "type": "string",
-                "description": "Specifies how to interpret the identifier. Can be \"label\", \"wavelength_id\", or \"index\" (must be an integer). At least one and at most three identifiers must be provided."
+                "description": "Specifies how to interpret the identifier. Can be \"label\", \"wavelength_id\", or \"index\" (must be an integer)."
               },
               "identifiers": {
                 "items": {
@@ -177,7 +177,7 @@
                 "minItems": 1,
                 "title": "Identifiers",
                 "type": "array",
-                "description": "Unique identifier for the channel. This can be a channel label, wavelength ID, or index."
+                "description": "Unique identifiers for the channels. This can be channel labels, wavelength IDs, or indices. At least one and at most three identifiers must be provided."
               }
             },
             "required": [
@@ -187,20 +187,20 @@
             "type": "object"
           },
           "CreateMaskingRoiTable": {
-            "description": "Create Masking ROI Table Configuration",
+            "description": "Create Masking ROI Table Configuration.",
             "properties": {
               "mode": {
                 "const": "Create Masking ROI Table",
                 "default": "Create Masking ROI Table",
                 "title": "Mode",
                 "type": "string",
-                "description": "Literal[\"Create Masking ROI Table\"]: Mode to create masking ROI table."
+                "description": "Mode to create masking ROI table."
               },
               "table_name": {
                 "default": "{label_name}_masking_ROI_table",
                 "title": "Table Name",
                 "type": "string",
-                "description": "str: Name of the masking ROI table to be created. Defaults to \"{label_name}_masking_ROI_table\", where {label_name} is the name of the label image used for segmentation."
+                "description": "Name of the masking ROI table to be created. Defaults to \"{label_name}_masking_ROI_table\", where {label_name} is the name of the label image used for segmentation."
               }
             },
             "title": "CreateMaskingRoiTable",
@@ -214,7 +214,7 @@
                 "default": "custom",
                 "title": "Mode",
                 "type": "string",
-                "description": "Literal[\"custom\"]: Use custom normalization with full control over parameters."
+                "description": "Use custom normalization with full control over parameters."
               },
               "normalize": {
                 "default": true,
@@ -257,7 +257,7 @@
                 ],
                 "title": "Lowhigh",
                 "type": "array",
-                "description": "The lower and upper bounds for normalization. Can be a tuple of two values (applied to all channels) or an array of shape (nchan, 2) for per-channel normalization. Incompatible with smoothing and sharpening. Defaults to None."
+                "description": "The lower and upper bounds for normalization. Incompatible with smoothing and sharpening. Defaults to (0.0, 1000.0)."
               },
               "percentile": {
                 "default": [
@@ -276,19 +276,19 @@
                 ],
                 "title": "Percentile",
                 "type": "array",
-                "description": "The lower and upper percentiles for normalization. If provided, it should be a tuple of two values. Each value should be between 0 and 100. If use_lowhigh is True, this parameter is ignored. Defaults to (1.0, 99.0)."
+                "description": "The lower and upper percentiles for normalization. Each value should be between 0 and 100. If use_lowhigh is True, this parameter is ignored. Defaults to (1.0, 99.0)."
               },
               "sharpen_radius": {
                 "default": 0.0,
                 "title": "Sharpen Radius",
                 "type": "number",
-                "description": "The radius for sharpening the image. Defaults to 0."
+                "description": "The radius for sharpening the image. Defaults to 0.0."
               },
               "smooth_radius": {
                 "default": 0.0,
                 "title": "Smooth Radius",
                 "type": "number",
-                "description": "The radius for smoothing the image. Defaults to 0."
+                "description": "The radius for smoothing the image. Defaults to 0.0."
               },
               "tile_norm_blocksize": {
                 "default": 0,
@@ -320,7 +320,7 @@
                 "default": "default",
                 "title": "Mode",
                 "type": "string",
-                "description": "Literal[\"default\"]: Use Cellpose default normalization (0-1 rescaling and 1%-99% percentile clipping). all other parameters are ignored."
+                "description": "Use Cellpose default normalization (0-1 rescaling and 1%-99% percentile clipping). All other parameters are ignored."
               }
             },
             "title": "DefaultNorm",
@@ -425,7 +425,7 @@
                 "default": "none",
                 "title": "Mode",
                 "type": "string",
-                "description": "Literal[\"none\"]: Do not apply any normalization, and ignore all other parameters."
+                "description": "Do not apply any normalization, and ignore all other parameters."
               }
             },
             "title": "NoNorm",
@@ -502,14 +502,14 @@
             "type": "object"
           },
           "SkipCreateMaskingRoiTable": {
-            "description": "Skip Creating Masking ROI Table Configuration",
+            "description": "Skip Creating Masking ROI Table Configuration.",
             "properties": {
               "mode": {
                 "const": "Skip Creating Masking ROI Table",
                 "default": "Skip Creating Masking ROI Table",
                 "title": "Mode",
                 "type": "string",
-                "description": "Literal[\"Skip Creating Masking ROI Table\"]: Mode to skip creating masking ROI table"
+                "description": "Mode to skip creating masking ROI table."
               }
             },
             "title": "SkipCreateMaskingRoiTable",
