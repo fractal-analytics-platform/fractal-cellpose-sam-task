@@ -25,7 +25,7 @@ from fractal_cellpose_sam_task.utils import (
     SkipCreateMaskingRoiTable,
 )
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("cellpose_sam_task")
 
 
 def _setup_cellpose_kwargs(

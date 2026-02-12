@@ -296,22 +296,27 @@ def test_cellpose_sam_segmentation_with_masking_roi_table(tmp_path: Path):
 
     channel = CellposeChannels(mode="label", identifiers=["DAPI_0"])
 
+    label_name = "custom_label_name"
     cellpose_sam_segmentation_task(
         zarr_url=str(test_data_path),
         channels=channel,
         overwrite=False,
+        label_name=label_name,
         create_masking_roi_table=SkipCreateMaskingRoiTable(),
     )
-    assert "DAPI_0_segmented_masking_ROI_table" not in ome_zarr.list_tables()
+    assert f"{label_name}" in ome_zarr.list_labels()
+    assert f"{label_name}_masking_ROI_table" not in ome_zarr.list_tables()
 
     cellpose_sam_segmentation_task(
         zarr_url=str(test_data_path),
         channels=channel,
         overwrite=True,
+        label_name=label_name,
         create_masking_roi_table=CreateMaskingRoiTable(),
     )
-    assert "DAPI_0_segmented_masking_ROI_table" in ome_zarr.list_tables()
-    table = ome_zarr.get_table("DAPI_0_segmented_masking_ROI_table")
+    assert f"{label_name}" in ome_zarr.list_labels(), ome_zarr.list_labels()
+    assert f"{label_name}_masking_ROI_table" in ome_zarr.list_tables()
+    table = ome_zarr.get_table(f"{label_name}_masking_ROI_table")
     assert isinstance(table, MaskingRoiTable)
     assert len(table.rois()) == 5
     expected_roi = (
