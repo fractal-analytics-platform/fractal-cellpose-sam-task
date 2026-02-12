@@ -222,7 +222,7 @@ class AdvancedCellposeParameters(BaseModel):
         anisotropy (float, optional): for 3D segmentation, optional
             rescaling factor (e.g. set to 2.0 if Z is sampled half as dense as X or Y).
             Defaults to None.
-        do_3D bool: whether to perform 3D segmentation. If set to false
+        do_3D (bool): whether to perform 3D segmentation. If set to false
             for a 3D image, the image will be segmented by XY planes independently
             and then stitched together in 3D using the stitch_threshold parameter.
             If set to true for a 2D image, this will be ignored.

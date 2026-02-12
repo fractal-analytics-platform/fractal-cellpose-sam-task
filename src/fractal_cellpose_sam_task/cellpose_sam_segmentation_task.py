@@ -47,7 +47,15 @@ def _setup_cellpose_kwargs(
         # to avoid having to add a single Z plane dimension to the
         # input and output
         kwargs["do_3D"] = False
-
+    if (
+        is_3d
+        and not cellpose_parameters.do_3D
+        and cellpose_parameters.stitch_threshold == 0.0
+    ):
+        raise ValueError(
+            "For 3D images either do_3D must be set to True or "
+            "if do_3D is False, stitch_threshold must be greater than 0.0."
+        )
     kwargs["channel_axis"] = 0
     if cellpose_parameters.anisotropy is None:
         kwargs["anisotropy"] = calculated_anisotropy
