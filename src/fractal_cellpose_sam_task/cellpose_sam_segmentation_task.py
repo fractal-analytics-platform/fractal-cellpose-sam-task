@@ -41,8 +41,13 @@ def _setup_cellpose_kwargs(
     whether an anisotropy factor has been calculated.
     """
     kwargs = cellpose_parameters.to_eval_kwargs()
-    kwargs["do_3D"] = is_3d
     kwargs["z_axis"] = 1 if is_3d else None
+    if not is_3d:
+        # For 2D segmentation we need to set do_3D=False
+        # to avoid having to add a single Z plane dimension to the
+        # input and output
+        kwargs["do_3D"] = False
+
     kwargs["channel_axis"] = 0
     if cellpose_parameters.anisotropy is None:
         kwargs["anisotropy"] = calculated_anisotropy
@@ -50,7 +55,7 @@ def _setup_cellpose_kwargs(
     if cellpose_parameters.verbose:
         logger.info("Cellpose evaluation parameters:")
         for key, value in kwargs.items():
-            logger.info(f"  {key}: {value}")
+            logger.info(f" {key}: {value}")
     return kwargs
 
 

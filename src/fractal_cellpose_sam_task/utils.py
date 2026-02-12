@@ -222,6 +222,10 @@ class AdvancedCellposeParameters(BaseModel):
         anisotropy (float, optional): for 3D segmentation, optional
             rescaling factor (e.g. set to 2.0 if Z is sampled half as dense as X or Y).
             Defaults to None.
+        do_3D bool: whether to perform 3D segmentation. If set to false
+            for a 3D image, the image will be segmented by XY planes independently
+            and then stitched together in 3D using the stitch_threshold parameter.
+            If set to true for a 2D image, this will be ignored.
         stitch_threshold (float, optional): if stitch_threshold>0.0
             and not do_3D, masks are stitched in 3D to return volume segmentation.
             Defaults to 0.0.
@@ -251,6 +255,7 @@ class AdvancedCellposeParameters(BaseModel):
     cellprob_threshold: float = 0.0
     flow3D_smooth: int = 0
     anisotropy: Optional[float] = None
+    do_3D: bool = True
     stitch_threshold: float = 0.0
     min_size: int = 15
     max_size_fraction: float = 0.4
@@ -275,6 +280,7 @@ class AdvancedCellposeParameters(BaseModel):
             "cellprob_threshold": self.cellprob_threshold,
             "flow3D_smooth": self.flow3D_smooth,
             "anisotropy": self.anisotropy,
+            "do_3D": self.do_3D,
             "stitch_threshold": self.stitch_threshold,
             "min_size": self.min_size,
             "max_size_fraction": self.max_size_fraction,
