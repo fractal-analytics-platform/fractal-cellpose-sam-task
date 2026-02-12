@@ -191,6 +191,7 @@ def cellpose_sam_segmentation_task(
     else:
         axes_order = "cyx"
         anisotropy = None
+    logger.info(f"Segmenting using {axes_order=} and {anisotropy=}")
 
     if iterator_configuration.masking is None:
         # Create a basic SegmentationIterator without masking
