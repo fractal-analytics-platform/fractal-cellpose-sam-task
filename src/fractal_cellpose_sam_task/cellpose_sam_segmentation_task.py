@@ -346,7 +346,11 @@ def cellpose_sam_segmentation_task(
     if isinstance(create_masking_roi_table, CreateMaskingRoiTable):
         table_name = create_masking_roi_table.get_table_name(label_name=label_name)
         masking_roi_table = label.build_masking_roi_table()
-        ome_zarr.add_table(name=table_name, table=masking_roi_table)
+        ome_zarr.add_table(
+            name=table_name, 
+            table=masking_roi_table, 
+            overwrite=overwrite
+        )
     return None
 
 
