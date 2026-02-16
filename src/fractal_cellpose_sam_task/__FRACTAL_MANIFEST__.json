@@ -352,6 +352,44 @@
             "title": "GaussianFilter",
             "type": "object"
           },
+          "HistogramEqualization": {
+            "description": "Contrast Limited Adaptive Histogram Equalization (CLAHE) pre-processing configuration.",
+            "properties": {
+              "type": {
+                "const": "histogram",
+                "default": "histogram",
+                "title": "Type",
+                "type": "string",
+                "description": "Type of pre-processing."
+              },
+              "kernel_size_xy": {
+                "title": "Kernel Size Xy",
+                "type": "integer",
+                "description": "Shape of kernel in XY plane. By default, kernel_size is 1/8 of image height by 1/8 of its width."
+              },
+              "kernel_size_z": {
+                "title": "Kernel Size Z",
+                "type": "integer",
+                "description": "Shape of kernel in Z axis. By default, kernel_size is 1/8 of image height by 1/8 of its width."
+              },
+              "clip_limit": {
+                "default": 0.01,
+                "maximum": 1,
+                "minimum": 0,
+                "title": "Clip Limit",
+                "type": "number",
+                "description": "Clipping limit, normalized between 0 and 1 (higher values give more contrast)."
+              },
+              "nbins": {
+                "default": 256,
+                "title": "Nbins",
+                "type": "integer",
+                "description": "Number of gray bins for histogram (\u201cdata range\u201d)."
+              }
+            },
+            "title": "HistogramEqualization",
+            "type": "object"
+          },
           "IteratorConfiguration": {
             "description": "Advanced Masking configuration.",
             "properties": {
@@ -439,6 +477,7 @@
                   "discriminator": {
                     "mapping": {
                       "gaussian": "#/$defs/GaussianFilter",
+                      "histogram": "#/$defs/HistogramEqualization",
                       "median": "#/$defs/MedianFilter"
                     },
                     "propertyName": "type"
@@ -449,6 +488,9 @@
                     },
                     {
                       "$ref": "#/$defs/MedianFilter"
+                    },
+                    {
+                      "$ref": "#/$defs/HistogramEqualization"
                     }
                   ]
                 },

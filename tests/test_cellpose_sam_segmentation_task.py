@@ -11,6 +11,7 @@ from fractal_cellpose_sam_task.cellpose_sam_segmentation_task import (
 )
 from fractal_cellpose_sam_task.pre_post_process import (
     GaussianFilter,
+    HistogramEqualization,
     MedianFilter,
     PrePostProcessConfiguration,
     SizeFilter,
@@ -99,6 +100,7 @@ def test_cellpose_sam_segmentation_task(
         pre_process=[
             GaussianFilter(sigma_xy=1.0),
             MedianFilter(size_xy=3),
+            HistogramEqualization(kernel_size_xy=4, clip_limit=0.1),
         ],
         post_process=[SizeFilter(min_size=10)],
     )
