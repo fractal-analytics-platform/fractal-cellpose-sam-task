@@ -39,7 +39,7 @@ test = ["pytest", "requests", "jsonschema", "devtools"]
 
 dev = [
     "notebook",
-    "napari<=0.6.6",
+    "napari",
     "pyqt5",
     "devtools",
     "hatch",
