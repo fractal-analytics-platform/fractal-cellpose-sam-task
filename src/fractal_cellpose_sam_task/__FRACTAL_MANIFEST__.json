@@ -353,7 +353,7 @@
             "type": "object"
           },
           "HistogramEqualization": {
-            "description": "Contrast Limited Adaptive Histogram Equalization (CLAHE) pre-processing configuration.",
+            "description": "Contrast Limited Adaptive Histogram Equalization (CLAHE) pre-processing",
             "properties": {
               "type": {
                 "const": "histogram",
