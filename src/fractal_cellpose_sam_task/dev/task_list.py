@@ -75,6 +75,11 @@ INPUT_MODELS = [
     (
         "fractal_cellpose_sam_task",
         "pre_post_process.py",
+        "HistogramEqualization",
+    ),
+    (
+        "fractal_cellpose_sam_task",
+        "pre_post_process.py",
         "SizeFilter",
     ),
 ]

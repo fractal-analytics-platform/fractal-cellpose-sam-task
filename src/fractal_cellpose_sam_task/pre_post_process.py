@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 
 import numpy as np
 from pydantic import BaseModel, Field
+from skimage.exposure import equalize_adapthist
 from skimage.filters import gaussian, median
 from skimage.morphology import remove_small_objects
 
@@ -107,8 +108,89 @@ class MedianFilter(BaseModel):
             raise ValueError("Input to median filter image must be 2D, 3D, or 4D.")
 
 
+class HistogramEqualization(BaseModel):
+    """Contrast Limited Adaptive Histogram Equalization (CLAHE) pre-processing
+
+    configuration.
+
+    Attributes:
+        type (Literal["histogram"]): Type of pre-processing.
+        kernel_size_xy (int | None): Shape of kernel in XY plane.
+            By default, kernel_size is 1/8 of image height by 1/8 of its width.
+        kernel_size_z (int | None): Shape of kernel in Z axis.
+            By default, kernel_size is 1/8 of image height by 1/8 of its width.
+        clip_limit (float | None): Clipping limit, normalized between 0 and 1
+            (higher values give more contrast).
+        nbins (int | None): Number of gray bins for histogram (“data range”).
+    """
+
+    type: Literal["histogram"] = "histogram"
+    kernel_size_xy: int | None = None
+    kernel_size_z: int | None = None
+    clip_limit: float | None = Field(default=0.01, ge=0, le=1)
+    nbins: int | None = 256
+
+    def _build_kernel_size(self, image: np.ndarray) -> np.ndarray | None:
+        """Build kernel size tuple based on image dimensions.
+
+        Args:
+            image (np.ndarray): Input image.
+
+        Returns:
+            np.ndarray | None: Kernel size tuple or None for default behavior.
+        """
+        if image.ndim == 2:
+            if self.kernel_size_z is not None:
+                logger.warning(
+                    "kernel_size_z is specified but the input image is 2D. "
+                    "Ignoring kernel_size_z."
+                )
+            kernel_size = (self.kernel_size_xy, self.kernel_size_xy)
+
+        elif image.ndim == 3:
+            kernel_size = (
+                self.kernel_size_z,
+                self.kernel_size_xy,
+                self.kernel_size_xy,
+            )
+
+        elif image.ndim == 4:
+            kernel_size = (
+                1,
+                self.kernel_size_z,
+                self.kernel_size_xy,
+                self.kernel_size_xy,
+            )
+        else:
+            raise ValueError("Input to median filter image must be 2D, 3D, or 4D.")
+
+        # Return None if any kernel size component is None (use scikit-image defaults)
+        # Return np.array only if all values are specified
+        return (
+            np.array(kernel_size) if all(k is not None for k in kernel_size) else None
+        )
+
+    def apply(self, image: np.ndarray) -> np.ndarray:
+        """Apply Histogram equalization to the image.
+
+        Args:
+            image (np.ndarray): Input image.
+
+        Returns:
+            np.ndarray: Histogram equalized image.
+        """
+        kernel_size = self._build_kernel_size(image)
+
+        return equalize_adapthist(
+            image,
+            kernel_size=kernel_size,
+            clip_limit=self.clip_limit,
+            nbins=self.nbins,
+        )
+
+
 PreProcess = Annotated[
-    GaussianFilter | MedianFilter,
+    GaussianFilter | MedianFilter | HistogramEqualization,
     Field(discriminator="type"),
 ]
 
