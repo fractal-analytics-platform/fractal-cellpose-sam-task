@@ -35,6 +35,23 @@ class MockCellposeModel:
         return masks, None, None
 
 
+class MockCellposeModelWithEmptyFrames:
+    """Mock that returns empty masks on every other call to simulate empty frames."""
+
+    def __init__(self, *args, **kwargs):
+        self._call_count = 0
+
+    def eval(self, image, **kwargs):
+        self._call_count += 1
+        if self._call_count % 2 == 0:
+            # Return empty mask for even calls
+            masks = np.zeros(image.shape[1:], dtype=np.uint32)
+        else:
+            # Return non-empty mask for odd calls
+            masks = np.ones(image.shape[1:], dtype=np.uint32)
+        return masks, None, None
+
+
 def check_label_quality(
     ome_zarr: OmeZarrContainer, label_name: str, gt_name: str = "nuclei"
 ):
@@ -325,3 +342,50 @@ def test_cellpose_sam_segmentation_with_masking_roi_table(tmp_path: Path):
         "label=1 space='world'"
     )
     assert str(table.rois()[0]) == expected_roi
+
+
+def test_empty_frames_do_not_reset_labels(monkeypatch, tmp_path: Path):
+    """Test that empty frames don't cause label counter to reset (issue #16)."""
+    test_data_path = tmp_path / "data.zarr"
+    # 3 time points, no channel dimension
+    shape = (3, 64, 64)
+    axes = "tyx"
+
+    ome_zarr = create_synthetic_ome_zarr(
+        store=test_data_path,
+        shape=shape,
+        channels_meta=["DAPI_0"],
+        overwrite=False,
+        axes_names=axes,
+    )
+
+    import cellpose.models
+
+    monkeypatch.setattr(
+        cellpose.models,
+        "CellposeModel",
+        MockCellposeModelWithEmptyFrames,
+    )
+
+    channel = CellposeChannels(mode="label", identifiers=["DAPI_0"])
+    cellpose_sam_segmentation_task(
+        zarr_url=str(test_data_path),
+        channels=channel,
+        overwrite=False,
+    )
+
+    label_data = ome_zarr.get_label("DAPI_0_segmented").get_as_numpy(axes_order="tyx")
+
+    # Frame 0 (call 1, odd): non-empty, labels should be 1
+    # Frame 1 (call 2, even): empty, all zeros
+    # Frame 2 (call 3, odd): non-empty, labels should be 2 (not reset to 1)
+    assert label_data[1].max() == 0, "Frame 1 should be empty"
+    assert label_data[0].max() > 0, "Frame 0 should have labels"
+    assert label_data[2].max() > 0, "Frame 2 should have labels"
+
+    # The key assertion: labels in frame 2 must not duplicate labels in frame 0
+    labels_t0 = set(np.unique(label_data[0])) - {0}
+    labels_t2 = set(np.unique(label_data[2])) - {0}
+    assert labels_t0.isdisjoint(labels_t2), (
+        f"Duplicate labels across frames! T=0: {labels_t0}, T=2: {labels_t2}"
+    )
