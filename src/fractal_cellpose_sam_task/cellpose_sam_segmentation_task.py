@@ -328,7 +328,7 @@ def cellpose_sam_segmentation_task(
         )
         # Ensure unique labels across different chunks
         label_img = np.where(label_img == 0, 0, label_img + max_label)
-        max_label = label_img.max()
+        max_label = max(max_label, label_img.max())
         writer(label_img)
         iteration_time = time.time() - start_time
         run_times.append(iteration_time)
