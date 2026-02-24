@@ -178,6 +178,12 @@
                 "title": "Identifiers",
                 "type": "array",
                 "description": "Unique identifiers for the channels. This can be channel labels, wavelength IDs, or indices. At least one and at most three identifiers must be provided."
+              },
+              "skip_if_missing": {
+                "default": false,
+                "title": "Skip If Missing",
+                "type": "boolean",
+                "description": "If True, if the channel specified by an identifier is missing, the task will not fail but will instead be skipped."
               }
             },
             "required": [

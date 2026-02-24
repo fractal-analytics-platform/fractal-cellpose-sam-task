@@ -5,9 +5,11 @@ import time
 
 import numpy as np
 from cellpose import core, models
-from ngio import open_ome_zarr_container
+from ngio import OmeZarrContainer, open_ome_zarr_container
 from ngio.experimental.iterators import MaskedSegmentationIterator, SegmentationIterator
+from ngio.images._image import _parse_channel_selection
 from ngio.images._masked_image import MaskedImage
+from ngio.utils import NgioValueError
 from pydantic import validate_call
 
 from fractal_cellpose_sam_task.pre_post_process import (
@@ -105,7 +107,7 @@ def segmentation_function(
 
 
 def load_masked_image(
-    ome_zarr,
+    ome_zarr: OmeZarrContainer,
     masking_configuration: MaskingConfiguration,
     level_path: str | None = None,
 ) -> MaskedImage:
@@ -156,6 +158,45 @@ def _format_label_name(label_name_template: str, channel_identifier: str) -> str
             f"'channel_identifier'. {{{e}}} was provided."
         ) from e
     return label_name
+
+
+def _skip_segmentation(channels: CellposeChannels, ome_zarr: OmeZarrContainer) -> bool:
+    """Check wheter to skip the current task based on the channel configuration.
+
+    If the channel selection specified in the channels parameter is not
+    valid for the provided OME-Zarr image, this function checks the
+    skip_if_missing attribute of the channels configuration.
+    If skip_if_missing is True, the function returns True, indicating that the task
+    should be skipped. If skip_if_missing is False, a ValueError is raised.
+
+    Args:
+        channels (CellposeChannels): The channel selection configuration.
+        ome_zarr (OmeZarrContainer): The OME-Zarr container to check against.
+
+    Returns:
+        bool: True if the task should be skipped due to missing channels,
+        False otherwise.
+
+    """
+    channels_list = channels.to_list()
+    image = ome_zarr.get_image()
+    try:
+        _parse_channel_selection(image=image, channel_selection=channels.to_list())
+    except NgioValueError as e:
+        if channels.skip_if_missing:
+            logger.warning(
+                f"Channel selection {channels_list} is not valid for the provided "
+                "image, but skip_if_missing is set to True. Skipping segmentation."
+            )
+            logger.debug(f"Original error message: {e}")
+            return True
+        else:
+            raise ValueError(
+                f"Channel selection {channels_list} is not valid for the provided "
+                "image. If you want to skip processing when channels are missing, "
+                "set skip_if_missing to True."
+            ) from e
+    return False
 
 
 @validate_call
@@ -211,6 +252,10 @@ def cellpose_sam_segmentation_task(
     # Open the OME-Zarr container
     ome_zarr = open_ome_zarr_container(zarr_url)
     logger.info(f"{ome_zarr=}")
+    # Validate that the specified channels are present in the image
+    if _skip_segmentation(channels=channels, ome_zarr=ome_zarr):
+        return None
+
     # Format the label name based on the provided template and channel identifier
     label_name = _format_label_name(
         label_name_template=label_name, channel_identifier=channels.identifiers[0]
