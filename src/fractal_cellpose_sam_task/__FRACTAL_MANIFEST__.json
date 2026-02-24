@@ -183,7 +183,7 @@
                 "default": false,
                 "title": "Skip If Missing",
                 "type": "boolean",
-                "description": "If True, if the channel specified by an identifier is missing, the task will not fail but will instead be skipped."
+                "description": "If True and the specified channel(s) are not found in the image, the segmentation will be skipped instead of raising an error. Defaults to False."
               }
             },
             "required": [
