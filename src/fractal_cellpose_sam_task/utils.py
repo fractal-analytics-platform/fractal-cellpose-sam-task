@@ -292,8 +292,9 @@ class CellposeChannels(BaseModel):
         identifiers (list[str]): Unique identifiers for the channels. This can
             be channel labels, wavelength IDs, or indices. At least one and at
             most three identifiers must be provided.
-        skip_if_missing (bool): If True, if the channel specified by an identifier
-            is missing, the task will not fail but will instead be skipped.
+        skip_if_missing (bool): If True and the specified channel(s) are not found in
+            the image, the segmentation will be skipped instead of raising an error.
+            Defaults to False.
     """
 
     mode: Literal["label", "wavelength_id", "index"] = "label"
