@@ -292,10 +292,14 @@ class CellposeChannels(BaseModel):
         identifiers (list[str]): Unique identifiers for the channels. This can
             be channel labels, wavelength IDs, or indices. At least one and at
             most three identifiers must be provided.
+        skip_if_missing (bool): If True and the specified channel(s) are not found in
+            the image, the segmentation will be skipped instead of raising an error.
+            Defaults to False.
     """
 
     mode: Literal["label", "wavelength_id", "index"] = "label"
     identifiers: list[str] = Field(min_length=1, max_length=3)
+    skip_if_missing: bool = False
 
     @field_validator("identifiers", mode="after")
     @classmethod
