@@ -391,3 +391,86 @@ def test_empty_frames_do_not_reset_labels(monkeypatch, tmp_path: Path):
     assert labels_t0.isdisjoint(labels_t2), (
         f"Duplicate labels across frames! T=0: {labels_t0}, T=2: {labels_t2}"
     )
+
+
+def test_skip_if_missing_with_valid_channel(monkeypatch, tmp_path: Path):
+    """When skip_if_missing=True and the channel exists, the task runs normally."""
+    test_data_path = tmp_path / "data.zarr"
+    ome_zarr = create_synthetic_ome_zarr(
+        store=test_data_path,
+        shape=(64, 64),
+        channels_meta=["DAPI_0"],
+        overwrite=False,
+        axes_names="yx",
+    )
+
+    import cellpose.models
+
+    monkeypatch.setattr(cellpose.models, "CellposeModel", MockCellposeModel)
+
+    channel = CellposeChannels(
+        mode="label", identifiers=["DAPI_0"], skip_if_missing=True
+    )
+    cellpose_sam_segmentation_task(
+        zarr_url=str(test_data_path),
+        channels=channel,
+        overwrite=False,
+    )
+
+    # Channel exists → task must have run and created the label
+    assert "DAPI_0_segmented" in ome_zarr.list_labels()
+
+
+def test_skip_if_missing_with_invalid_channel(monkeypatch, tmp_path: Path):
+    """When skip_if_missing=True and the channel is absent, the task skips silently."""
+    test_data_path = tmp_path / "data.zarr"
+    ome_zarr = create_synthetic_ome_zarr(
+        store=test_data_path,
+        shape=(64, 64),
+        channels_meta=["DAPI_0"],
+        overwrite=False,
+        axes_names="yx",
+    )
+
+    import cellpose.models
+
+    monkeypatch.setattr(cellpose.models, "CellposeModel", MockCellposeModel)
+
+    # Request a channel that does not exist in the image
+    channel = CellposeChannels(
+        mode="label", identifiers=["GFP_0"], skip_if_missing=True
+    )
+    result = cellpose_sam_segmentation_task(
+        zarr_url=str(test_data_path),
+        channels=channel,
+        overwrite=False,
+    )
+
+    # Task should return None without raising and without creating any label
+    assert result is None
+    assert "GFP_0_segmented" not in ome_zarr.list_labels()
+
+
+def test_raise_if_missing_with_invalid_channel(monkeypatch, tmp_path: Path):
+    """When skip_if_missing=False and channel is absent, a ValueError is raised."""
+    test_data_path = tmp_path / "data.zarr"
+    create_synthetic_ome_zarr(
+        store=test_data_path,
+        shape=(64, 64),
+        channels_meta=["DAPI_0"],
+        overwrite=False,
+        axes_names="yx",
+    )
+
+    import cellpose.models
+
+    monkeypatch.setattr(cellpose.models, "CellposeModel", MockCellposeModel)
+
+    # skip_if_missing defaults to False
+    channel = CellposeChannels(mode="label", identifiers=["GFP_0"])
+    with pytest.raises(ValueError, match="GFP_0"):
+        cellpose_sam_segmentation_task(
+            zarr_url=str(test_data_path),
+            channels=channel,
+            overwrite=False,
+        )
