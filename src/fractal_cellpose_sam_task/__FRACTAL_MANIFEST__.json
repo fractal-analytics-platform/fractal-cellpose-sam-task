@@ -332,133 +332,133 @@
             "title": "DefaultNorm",
             "type": "object"
           },
-          "GaussianFilter": {
-            "description": "Gaussian pre-processing configuration.",
+          "GaussianBlurConfig": {
+            "description": "Configuration for Gaussian blur transformation.",
             "properties": {
               "type": {
-                "const": "gaussian",
-                "default": "gaussian",
+                "const": "Gaussian Blur Filter",
+                "default": "Gaussian Blur Filter",
+                "description": "Transformation type identifier for Gaussian blur filtering.",
                 "title": "Type",
-                "type": "string",
-                "description": "Type of pre-processing."
+                "type": "string"
               },
               "sigma_xy": {
                 "default": 2.0,
+                "description": "Standard deviation for Gaussian kernel in XY plane.",
                 "exclusiveMinimum": 0,
-                "title": "Sigma Xy",
-                "type": "number",
-                "description": "Standard deviation for Gaussian kernel in XY plane."
+                "title": "Sigma XY",
+                "type": "number"
               },
               "sigma_z": {
+                "description": "Standard deviation for Gaussian kernel in Z axis.\nIf not specified, no blurring is applied in Z axis.",
                 "title": "Sigma Z",
-                "type": "number",
-                "description": "Standard deviation for Gaussian kernel in Z axis. If not specified, no smoothing is applied in Z axis."
+                "type": "number"
               }
             },
-            "title": "GaussianFilter",
+            "title": "GaussianBlurConfig",
             "type": "object"
           },
-          "HistogramEqualization": {
-            "description": "Contrast Limited Adaptive Histogram Equalization (CLAHE) pre-processing",
+          "HistogramEqualizationConfig": {
+            "description": "Configuration for Contrast Limited Adaptive Histogram Equalization (CLAHE).",
             "properties": {
               "type": {
-                "const": "histogram",
-                "default": "histogram",
+                "const": "Histogram Equalization",
+                "default": "Histogram Equalization",
+                "description": "Transformation type identifier for histogram equalization.",
                 "title": "Type",
-                "type": "string",
-                "description": "Type of pre-processing."
+                "type": "string"
               },
               "kernel_size_xy": {
-                "title": "Kernel Size Xy",
-                "type": "integer",
-                "description": "Shape of kernel in XY plane. By default, kernel_size is 1/8 of image height by 1/8 of its width."
+                "description": "Shape of kernel in XY plane. If None, the default is 1/8 of image height by\n1/8 of its width.",
+                "title": "Kernel Size XY",
+                "type": "integer"
               },
               "kernel_size_z": {
+                "description": "Shape of kernel in Z axis. If None, the default is 1/8 of image height by\n1/8 of its width.",
                 "title": "Kernel Size Z",
-                "type": "integer",
-                "description": "Shape of kernel in Z axis. By default, kernel_size is 1/8 of image height by 1/8 of its width."
+                "type": "integer"
               },
               "clip_limit": {
                 "default": 0.01,
+                "description": "Clipping limit, normalized between 0 and 1 (higher values give more contrast).",
                 "maximum": 1,
                 "minimum": 0,
                 "title": "Clip Limit",
-                "type": "number",
-                "description": "Clipping limit, normalized between 0 and 1 (higher values give more contrast)."
+                "type": "number"
               },
               "nbins": {
                 "default": 256,
+                "description": "Number of gray bins for histogram (\"data range\").",
                 "title": "Nbins",
-                "type": "integer",
-                "description": "Number of gray bins for histogram (\u201cdata range\u201d)."
+                "type": "integer"
               }
             },
-            "title": "HistogramEqualization",
+            "title": "HistogramEqualizationConfig",
             "type": "object"
           },
-          "IteratorConfiguration": {
-            "description": "Advanced Masking configuration.",
+          "IteratorConfig": {
+            "description": "Advanced iterator configuration.",
             "properties": {
               "masking": {
-                "$ref": "#/$defs/MaskingConfiguration",
-                "title": "Masking Iterator Configuration",
-                "description": "If set, the segmentation will be performed only within the confines of the specified mask. A mask can be specified either by a label image or a Masking ROI table."
+                "$ref": "#/$defs/MaskingConfig",
+                "description": "If set, the segmentation will be performed only within the confines of\nthe specified mask. A mask can be specified either by a label image or a\nMasking ROI table.",
+                "title": "Masking Iterator Configuration"
               },
               "roi_table": {
+                "description": "Name of a ROI table. If set, the segmentation will be applied to each ROI\nin the table individually. This option can be combined with masking.",
                 "title": "Iterate Over ROIs",
-                "type": "string",
-                "description": "Name of a ROI table. If set, the segmentation will be applied to each ROI in the table individually. This option can be combined with masking."
+                "type": "string"
               }
             },
-            "title": "IteratorConfiguration",
+            "title": "IteratorConfig",
             "type": "object"
           },
-          "MaskingConfiguration": {
+          "MaskingConfig": {
             "description": "Masking configuration.",
             "properties": {
               "mode": {
                 "default": "Table Name",
+                "description": "Mode of masking to be applied.\n    - If \"Table Name\", the identifier refers to a masking table name.\n    - If \"Label Name\", the identifier refers to a label image name.",
                 "enum": [
                   "Table Name",
                   "Label Name"
                 ],
                 "title": "Mode",
-                "type": "string",
-                "description": "Mode of masking to be applied. If \"Table Name\", the identifier refers to a masking table name. If \"Label Name\", the identifier refers to a label image name."
+                "type": "string"
               },
               "identifier": {
+                "description": "Name of the masking table or label image depending on the mode.",
                 "title": "Identifier",
-                "type": "string",
-                "description": "Name of the masking table or label image depending on the mode."
+                "type": "string"
               }
             },
-            "title": "MaskingConfiguration",
+            "title": "MaskingConfig",
             "type": "object"
           },
-          "MedianFilter": {
-            "description": "Median filter pre-processing configuration.",
+          "MedianFilterConfig": {
+            "description": "Configuration for Median filter transformation.",
             "properties": {
               "type": {
-                "const": "median",
-                "default": "median",
+                "const": "Median Filter",
+                "default": "Median Filter",
+                "description": "Transformation type identifier for median filtering.",
                 "title": "Type",
-                "type": "string",
-                "description": "Type of pre-processing."
+                "type": "string"
               },
               "size_xy": {
                 "default": 2,
+                "description": "Size in pixels of the median filter in XY plane.",
                 "exclusiveMinimum": 0,
-                "title": "Size Xy",
-                "type": "integer",
-                "description": "Size in pixels of the median filter in XY plane."
+                "title": "Size XY",
+                "type": "integer"
               },
               "size_z": {
+                "description": "Size in pixels of the median filter in Z axis.\nIf not specified, no filtering is applied in Z axis.",
                 "title": "Size Z",
-                "type": "integer",
-                "description": "Size in pixels of the median filter in Z axis. If not specified, no filtering is applied in Z axis."
+                "type": "integer"
               }
             },
-            "title": "MedianFilter",
+            "title": "MedianFilterConfig",
             "type": "object"
           },
           "NoNorm": {
@@ -475,78 +475,80 @@
             "title": "NoNorm",
             "type": "object"
           },
-          "PrePostProcessConfiguration": {
+          "SegmentationTransformConfig": {
             "description": "Configuration for pre- and post-processing steps.",
             "properties": {
               "pre_process": {
+                "default": [],
+                "description": "List of pre-processing steps to be applied before segmentation.",
                 "items": {
                   "discriminator": {
                     "mapping": {
-                      "gaussian": "#/$defs/GaussianFilter",
-                      "histogram": "#/$defs/HistogramEqualization",
-                      "median": "#/$defs/MedianFilter"
+                      "Gaussian Blur Filter": "#/$defs/GaussianBlurConfig",
+                      "Histogram Equalization": "#/$defs/HistogramEqualizationConfig",
+                      "Median Filter": "#/$defs/MedianFilterConfig"
                     },
                     "propertyName": "type"
                   },
                   "oneOf": [
                     {
-                      "$ref": "#/$defs/GaussianFilter"
+                      "$ref": "#/$defs/GaussianBlurConfig"
                     },
                     {
-                      "$ref": "#/$defs/MedianFilter"
+                      "$ref": "#/$defs/MedianFilterConfig"
                     },
                     {
-                      "$ref": "#/$defs/HistogramEqualization"
+                      "$ref": "#/$defs/HistogramEqualizationConfig"
                     }
                   ]
                 },
                 "title": "Pre Process",
-                "type": "array",
-                "description": "List of pre-processing steps."
+                "type": "array"
               },
               "post_process": {
+                "default": [],
+                "description": "List of post-processing steps to be applied after segmentation.",
                 "items": {
                   "discriminator": {
                     "mapping": {
-                      "size_filter": "#/$defs/SizeFilter"
+                      "Size Filter": "#/$defs/SizeFilterConfig"
                     },
                     "propertyName": "type"
                   },
                   "oneOf": [
                     {
-                      "$ref": "#/$defs/SizeFilter"
+                      "$ref": "#/$defs/SizeFilterConfig"
                     }
                   ]
                 },
                 "title": "Post Process",
-                "type": "array",
-                "description": "List of post-processing steps."
+                "type": "array"
               }
             },
-            "title": "PrePostProcessConfiguration",
+            "title": "SegmentationTransformConfig",
             "type": "object"
           },
-          "SizeFilter": {
-            "description": "Size filter post-processing configuration.",
+          "SizeFilterConfig": {
+            "description": "Configuration for size filter post-processing.",
             "properties": {
               "type": {
-                "const": "size_filter",
-                "default": "size_filter",
+                "const": "Size Filter",
+                "default": "Size Filter",
+                "description": "Transformation type identifier for size filtering.",
                 "title": "Type",
-                "type": "string",
-                "description": "Type of post-processing."
+                "type": "string"
               },
               "min_size": {
+                "description": "Minimum size in pixels for objects to keep.\nObjects smaller than this size will be removed.",
                 "minimum": 0,
                 "title": "Min Size",
-                "type": "integer",
-                "description": "Minimum size in pixels for objects to keep."
+                "type": "integer"
               }
             },
             "required": [
               "min_size"
             ],
-            "title": "SizeFilter",
+            "title": "SizeFilterConfig",
             "type": "object"
           },
           "SkipCreateMaskingRoiTable": {
@@ -588,7 +590,7 @@
             "description": "If the OME-Zarr has multiple resolution levels, the level to use can be specified here. If not provided, the highest resolution level will be used."
           },
           "iterator_configuration": {
-            "$ref": "#/$defs/IteratorConfiguration",
+            "$ref": "#/$defs/IteratorConfig",
             "title": "Iterator Configuration",
             "description": "Configuration for the segmentation iterator. This can be used to specify masking and/or a ROI table."
           },
@@ -625,13 +627,13 @@
             "description": "Advanced parameters for Cellpose segmentation."
           },
           "pre_post_process": {
-            "$ref": "#/$defs/PrePostProcessConfiguration",
+            "$ref": "#/$defs/SegmentationTransformConfig",
             "default": {
               "pre_process": [],
               "post_process": []
             },
             "title": "Pre Post Process",
-            "description": "Configuration for pre- and post-processing steps."
+            "description": "Configuration for pre- and post-processing transforms applied by the iterator."
           },
           "create_masking_roi_table": {
             "default": {
