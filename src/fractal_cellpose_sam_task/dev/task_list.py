@@ -13,14 +13,14 @@ DOCS_LINK = "https://github.com/fractal-analytics-platform/fractal-cellpose-sam-
 INPUT_MODELS = [
     ("ngio", "images/_image.py", "ChannelSelectionModel"),
     (
-        "fractal_cellpose_sam_task",
-        "utils.py",
-        "MaskingConfiguration",
+        "fractal_tasks_utils",
+        "segmentation/_models.py",
+        "MaskingConfig",
     ),
     (
-        "fractal_cellpose_sam_task",
-        "utils.py",
-        "IteratorConfiguration",
+        "fractal_tasks_utils",
+        "segmentation/_models.py",
+        "IteratorConfig",
     ),
     (
         "fractal_cellpose_sam_task",
@@ -58,29 +58,29 @@ INPUT_MODELS = [
         "CreateMaskingRoiTable",
     ),
     (
-        "fractal_cellpose_sam_task",
-        "pre_post_process.py",
-        "PrePostProcessConfiguration",
+        "fractal_tasks_utils",
+        "segmentation/_transforms.py",
+        "SegmentationTransformConfig",
     ),
     (
-        "fractal_cellpose_sam_task",
-        "pre_post_process.py",
-        "GaussianFilter",
+        "fractal_tasks_utils",
+        "transforms/_transforms.py",
+        "GaussianBlurConfig",
     ),
     (
-        "fractal_cellpose_sam_task",
-        "pre_post_process.py",
-        "MedianFilter",
+        "fractal_tasks_utils",
+        "transforms/_transforms.py",
+        "MedianFilterConfig",
     ),
     (
-        "fractal_cellpose_sam_task",
-        "pre_post_process.py",
-        "HistogramEqualization",
+        "fractal_tasks_utils",
+        "transforms/_transforms.py",
+        "HistogramEqualizationConfig",
     ),
     (
-        "fractal_cellpose_sam_task",
-        "pre_post_process.py",
-        "SizeFilter",
+        "fractal_tasks_utils",
+        "transforms/_transforms.py",
+        "SizeFilterConfig",
     ),
 ]
 

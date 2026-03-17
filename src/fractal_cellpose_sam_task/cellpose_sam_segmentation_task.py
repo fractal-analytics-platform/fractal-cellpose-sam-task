@@ -1,29 +1,25 @@
 """This is the Python module for my_task."""
 
 import logging
-import time
 
 import numpy as np
 from cellpose import core, models
+from fractal_tasks_utils.segmentation import (
+    IteratorConfig,
+    compute_segmentation,
+    setup_segmentation_iterator,
+)
+from fractal_tasks_utils.segmentation._transforms import SegmentationTransformConfig
 from ngio import OmeZarrContainer, open_ome_zarr_container
-from ngio.experimental.iterators import MaskedSegmentationIterator, SegmentationIterator
 from ngio.images._image import _parse_channel_selection
-from ngio.images._masked_image import MaskedImage
 from ngio.utils import NgioValueError
 from pydantic import validate_call
 
-from fractal_cellpose_sam_task.pre_post_process import (
-    PrePostProcessConfiguration,
-    apply_post_process,
-    apply_pre_process,
-)
 from fractal_cellpose_sam_task.utils import (
     AdvancedCellposeParameters,
     AnyCreateRoiTableModel,
     CellposeChannels,
     CreateMaskingRoiTable,
-    IteratorConfiguration,
-    MaskingConfiguration,
     SkipCreateMaskingRoiTable,
 )
 
@@ -72,7 +68,6 @@ def segmentation_function(
     *,
     image_data: np.ndarray,
     model: models.CellposeModel,
-    pre_post_process: PrePostProcessConfiguration,
     **kwargs,
 ) -> np.ndarray:
     """Wrap Cellpose segmentation call.
@@ -80,60 +75,18 @@ def segmentation_function(
     Args:
         image_data (np.ndarray): Input image data
         model (models.CellposeModel): Preloaded Cellpose model.
-        pre_post_process (PrePostProcessConfiguration): Configuration for pre- and
-            post-processing steps.
         **kwargs: Additional keyword arguments to pass to the Cellpose model
             evaluation function
 
     Returns:
         np.ndarray: Segmented image
     """
-    # Pre-processing
-    image_data = apply_pre_process(
-        image=image_data,
-        pre_process_steps=pre_post_process.pre_process,
-    )
     masks, _, _ = model.eval(
         image_data,
         **kwargs,
     )
-    # Post-processing
-    masks = apply_post_process(
-        labels=masks,
-        post_process_steps=pre_post_process.post_process,
-    )
     masks = np.expand_dims(masks, axis=0).astype(np.uint32)
     return masks
-
-
-def load_masked_image(
-    ome_zarr: OmeZarrContainer,
-    masking_configuration: MaskingConfiguration,
-    level_path: str | None = None,
-) -> MaskedImage:
-    """Load a masked image from an OME-Zarr based on the masking configuration.
-
-    Args:
-        ome_zarr: The OME-Zarr container.
-        masking_configuration (MaskingConfiguration): Configuration for masking.
-        level_path (str | None): Optional path to a specific resolution level.
-
-    """
-    if masking_configuration.mode == "Table Name":
-        masking_table_name = masking_configuration.identifier
-        masking_label_name = None
-    else:
-        masking_label_name = masking_configuration.identifier
-        masking_table_name = None
-    logger.info(f"Using masking with {masking_table_name=}, {masking_label_name=}")
-
-    # Base Iterator with masking
-    masked_image = ome_zarr.get_masked_image(
-        masking_label_name=masking_label_name,
-        masking_table_name=masking_table_name,
-        path=level_path,
-    )
-    return masked_image
 
 
 def _format_label_name(label_name_template: str, channel_identifier: str) -> str:
@@ -209,11 +162,11 @@ def cellpose_sam_segmentation_task(
     label_name: str = "{channel_identifier}_segmented",
     level_path: str | None = None,
     # Iteration parameters
-    iterator_configuration: IteratorConfiguration | None = None,
+    iterator_configuration: IteratorConfig | None = None,
     custom_model: str | None = None,
     # Cellpose parameters
     advanced_parameters: AdvancedCellposeParameters = AdvancedCellposeParameters(),  # noqa: B008
-    pre_post_process: PrePostProcessConfiguration = PrePostProcessConfiguration(),  # noqa: B008
+    pre_post_process: SegmentationTransformConfig = SegmentationTransformConfig(),  # noqa: B008
     create_masking_roi_table: AnyCreateRoiTableModel = SkipCreateMaskingRoiTable(),  # noqa: B008
     overwrite: bool = True,
 ) -> None:
@@ -232,21 +185,20 @@ def cellpose_sam_segmentation_task(
         level_path (str | None): If the OME-Zarr has multiple resolution levels,
             the level to use can be specified here. If not provided, the highest
             resolution level will be used.
-        iterator_configuration (IteratorConfiguration | None): Configuration
+        iterator_configuration (IteratorConfig | None): Configuration
             for the segmentation iterator. This can be used to specify masking
             and/or a ROI table.
         custom_model (str | None): Path to a custom Cellpose model. If not
             set, the default "cpsam" model will be used.
         advanced_parameters (AdvancedCellposeParameters): Advanced parameters
             for Cellpose segmentation.
-        pre_post_process (PrePostProcessConfiguration): Configuration for pre- and
-            post-processing steps.
+        pre_post_process (SegmentationTransformConfig): Configuration for pre- and
+            post-processing transforms applied by the iterator.
         create_masking_roi_table (AnyCreateRoiTableModel): Configuration to
             create a masking ROI table after segmentation.
         overwrite (bool): Whether to overwrite an existing label image.
             Defaults to True.
     """
-    # Use the first of input_paths
     logger.info(f"{zarr_url=}")
 
     # Open the OME-Zarr container
@@ -262,20 +214,11 @@ def cellpose_sam_segmentation_task(
     )
     logger.info(f"Formatted label name: {label_name=}")
 
-    # Derive the label and an get it at the specified level path
-    ome_zarr.derive_label(name=label_name, overwrite=overwrite)
-    label = ome_zarr.get_label(name=label_name, path=level_path)
-    logger.info(f"Derived label image: {label=}")
-
-    # Set up the appropriate iterator based on the configuration
-    if iterator_configuration is None:
-        iterator_configuration = IteratorConfiguration()
-
     # Determine if we are doing 3D segmentation
     # If so we need to set the anisotropy factor
     if ome_zarr.is_3d:
-        axes_order = "czyx"
-        px_z, (px_y, px_x) = label.pixel_size.z, label.pixel_size.yx
+        image = ome_zarr.get_image(path=level_path)
+        px_z, (px_y, px_x) = image.pixel_size.z, image.pixel_size.yx
         # Pixelsize must be isotropic in XY (to some extent)
         perc_diff_xy = abs(px_x - px_y) / max(px_x, px_y)
         if perc_diff_xy >= 0.01:
@@ -289,57 +232,9 @@ def cellpose_sam_segmentation_task(
             f"(px_z={px_z} / px_xy={px_xy}) = {anisotropy}"
         )
     else:
-        axes_order = "cyx"
         anisotropy = None
-    logger.info(f"Segmenting using {axes_order=}")
-
-    if iterator_configuration.masking is None:
-        # Create a basic SegmentationIterator without masking
-        image = ome_zarr.get_image(path=level_path)
-        logger.info(f"{image=}")
-        iterator = SegmentationIterator(
-            input_image=image,
-            output_label=label,
-            channel_selection=channels.to_list(),
-            axes_order=axes_order,
-        )
-    else:
-        # Since masking is requested, we need to determine load a masking image
-        masked_image = load_masked_image(
-            ome_zarr=ome_zarr,
-            masking_configuration=iterator_configuration.masking,
-            level_path=level_path,
-        )
-        logger.info(f"{masked_image=}")
-        # A masked iterator is created instead of a basic segmentation iterator
-        # This will do two major things:
-        # 1) It will iterate only over the regions of interest defined by the
-        #   masking table or label image
-        # 2) It will only write the segmentation results within the masked regions
-        iterator = MaskedSegmentationIterator(
-            input_image=masked_image,
-            output_label=label,
-            channel_selection=channels.to_list(),
-            axes_order=axes_order,
-        )
-    # Make sure that if we have a time axis, we iterate over it
-    # Strict=False means that if there no z axis or z is size 1, it will still work
-    # If your segmentation needs requires a volume, use strict=True
-    iterator = iterator.by_zyx(strict=False)
-    logger.info(f"Iterator created: {iterator=}")
-
-    if iterator_configuration.roi_table is not None:
-        # If a ROI table is provided, we load it and use it to further restrict
-        # the iteration to the ROIs defined in the table
-        # Be aware that this is not an alternative to masking
-        # but only an additional restriction
-        table = ome_zarr.get_generic_roi_table(name=iterator_configuration.roi_table)
-        logger.info(f"ROI table retrieved: {table=}")
-        iterator = iterator.product(table)
-        logger.info(f"Iterator updated with ROI table: {iterator=}")
 
     # Initialize Cellpose model
-    # Check if colab notebook instance has GPU access
     if custom_model is None:
         custom_model = "cpsam"
 
@@ -354,42 +249,31 @@ def cellpose_sam_segmentation_task(
         calculated_anisotropy=anisotropy,
         cellpose_parameters=advanced_parameters,
     )
-    # Keep track of the maximum label to ensure unique across iterations
-    max_label = 0
-    #
-    # Core processing loop
-    #
-    logger.info("Starting processing...")
-    run_times = []
-    num_rois = len(iterator.rois)
-    logging_step = max(1, num_rois // 10)
-    for it, (image_data, writer) in enumerate(iterator.iter_as_numpy()):
-        start_time = time.time()
-        label_img = segmentation_function(
-            image_data=image_data,
-            model=model,
-            pre_post_process=pre_post_process,
-            **cellpose_kwargs,
-        )
-        # Ensure unique labels across different chunks
-        label_img = np.where(label_img == 0, 0, label_img + max_label)
-        max_label = max(max_label, label_img.max())
-        writer(label_img)
-        iteration_time = time.time() - start_time
-        run_times.append(iteration_time)
 
-        # Only log the progress every logging_step iterations
-        if it % logging_step == 0 or it == num_rois - 1:
-            avg_time = sum(run_times) / len(run_times)
-            logger.info(
-                f"Processed ROI {it + 1}/{num_rois} "
-                f"(avg time per ROI: {avg_time:.2f} s)"
-            )
+    # Set up the segmentation iterator
+    iterator = setup_segmentation_iterator(
+        zarr_url=zarr_url,
+        channels=channels.to_list(),
+        output_label_name=label_name,
+        level_path=level_path,
+        iterator_configuration=iterator_configuration,
+        segmentation_transform_config=pre_post_process,
+        overwrite=overwrite,
+    )
+
+    # Run the core segmentation loop
+    compute_segmentation(
+        segmentation_func=lambda x: segmentation_function(
+            image_data=x, model=model, **cellpose_kwargs
+        ),
+        iterator=iterator,
+    )
     logger.info(f"label {label_name} successfully created at {zarr_url}")
 
     # Building a masking roi table
     if isinstance(create_masking_roi_table, CreateMaskingRoiTable):
         table_name = create_masking_roi_table.get_table_name(label_name=label_name)
+        label = ome_zarr.get_label(name=label_name, path=level_path)
         masking_roi_table = label.build_masking_roi_table()
         ome_zarr.add_table(
             name=table_name, table=masking_roi_table, overwrite=overwrite

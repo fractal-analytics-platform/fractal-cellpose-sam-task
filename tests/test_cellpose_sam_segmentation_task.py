@@ -2,6 +2,14 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from fractal_tasks_utils.segmentation import IteratorConfig, MaskingConfig
+from fractal_tasks_utils.segmentation._transforms import SegmentationTransformConfig
+from fractal_tasks_utils.transforms import (
+    GaussianBlurConfig,
+    HistogramEqualizationConfig,
+    MedianFilterConfig,
+    SizeFilterConfig,
+)
 from ngio import OmeZarrContainer, Roi, create_synthetic_ome_zarr
 from ngio.tables import MaskingRoiTable, RoiTable
 from skimage.metrics import adapted_rand_error
@@ -9,20 +17,11 @@ from skimage.metrics import adapted_rand_error
 from fractal_cellpose_sam_task.cellpose_sam_segmentation_task import (
     cellpose_sam_segmentation_task,
 )
-from fractal_cellpose_sam_task.pre_post_process import (
-    GaussianFilter,
-    HistogramEqualization,
-    MedianFilter,
-    PrePostProcessConfiguration,
-    SizeFilter,
-)
 from fractal_cellpose_sam_task.utils import (
     AdvancedCellposeParameters,
     CellposeChannels,
     CreateMaskingRoiTable,
     CustomNorm,
-    IteratorConfiguration,
-    MaskingConfiguration,
     SkipCreateMaskingRoiTable,
 )
 
@@ -113,13 +112,13 @@ def test_cellpose_sam_segmentation_task(
             MockCellposeModel,
         )
 
-    pre_post = PrePostProcessConfiguration(
+    pre_post = SegmentationTransformConfig(
         pre_process=[
-            GaussianFilter(sigma_xy=1.0),
-            MedianFilter(size_xy=3),
-            HistogramEqualization(kernel_size_xy=4, clip_limit=0.1),
+            GaussianBlurConfig(sigma_xy=1.0),
+            MedianFilterConfig(size_xy=3),
+            HistogramEqualizationConfig(kernel_size_xy=4, clip_limit=0.1),
         ],
-        post_process=[SizeFilter(min_size=10)],
+        post_process=[SizeFilterConfig(min_size=10)],
     )
     cellpose_sam_segmentation_task(
         zarr_url=str(test_data_path),
@@ -171,8 +170,8 @@ def test_cellpose_sam_segmentation_task_masked(
         identifiers=["DAPI_0"],
     )
 
-    iter_config = IteratorConfiguration(
-        masking=MaskingConfiguration(mode="Label Name", identifier="nuclei_mask"),
+    iter_config = IteratorConfig(
+        masking=MaskingConfig(mode="Label Name", identifier="nuclei_mask"),
         roi_table=None,
     )
 
@@ -251,7 +250,7 @@ def test_roi_table_cropping_cellpose_sam_segmentation_task_no_mock(tmp_path: Pat
     roi_table = RoiTable(rois=[roi])
     ome_zarr.add_table("well_ROI_table", roi_table, overwrite=True)
 
-    it_config = IteratorConfiguration(roi_table="well_ROI_table")
+    it_config = IteratorConfig(roi_table="well_ROI_table")
 
     cellpose_sam_segmentation_task(
         zarr_url=str(test_data_path),
