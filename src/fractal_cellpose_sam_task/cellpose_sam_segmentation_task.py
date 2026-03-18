@@ -13,7 +13,7 @@ from fractal_tasks_utils.segmentation._transforms import SegmentationTransformCo
 from ngio import OmeZarrContainer, open_ome_zarr_container
 from ngio.images._image import _parse_channel_selection
 from ngio.utils import NgioValueError
-from pydantic import validate_call
+from pydantic import Field, validate_call
 
 from fractal_cellpose_sam_task.utils import (
     AdvancedCellposeParameters,
@@ -165,9 +165,15 @@ def cellpose_sam_segmentation_task(
     iterator_configuration: IteratorConfig | None = None,
     custom_model: str | None = None,
     # Cellpose parameters
-    advanced_parameters: AdvancedCellposeParameters = AdvancedCellposeParameters(),  # noqa: B008
-    pre_post_process: SegmentationTransformConfig = SegmentationTransformConfig(),  # noqa: B008
-    create_masking_roi_table: AnyCreateRoiTableModel = SkipCreateMaskingRoiTable(),  # noqa: B008
+    advanced_parameters: AdvancedCellposeParameters = Field(  # noqa: B008
+        default_factory=AdvancedCellposeParameters
+    ),
+    pre_post_process: SegmentationTransformConfig = Field(  # noqa: B008
+        default_factory=SegmentationTransformConfig
+    ),
+    create_masking_roi_table: AnyCreateRoiTableModel = Field(  # noqa: B008
+        default_factory=SkipCreateMaskingRoiTable
+    ),
     overwrite: bool = True,
 ) -> None:
     """Segment an image using Cellpose with SAM model.

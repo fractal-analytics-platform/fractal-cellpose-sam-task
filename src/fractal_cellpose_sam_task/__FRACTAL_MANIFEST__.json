@@ -49,107 +49,89 @@
                     "$ref": "#/$defs/CustomNorm"
                   }
                 ],
-                "title": "Normalization",
-                "description": "Normalization model to use. Options are DefaultNorm (use Cellpose default normalization), NoNorm (disable normalization), or CustomNorm (full control over normalization parameters). Defaults to DefaultNorm()."
+                "title": "Normalization"
               },
               "batch_size": {
                 "default": 8,
                 "title": "Batch Size",
-                "type": "integer",
-                "description": "Number of 256x256 patches to run simultaneously on the GPU (can make smaller or bigger depending on GPU memory usage). Defaults to 8."
+                "type": "integer"
               },
               "resample": {
                 "default": true,
                 "title": "Resample",
-                "type": "boolean",
-                "description": "Run dynamics at original image size (will be slower but create more accurate boundaries). Defaults to True."
+                "type": "boolean"
               },
               "invert": {
                 "default": false,
                 "title": "Invert",
-                "type": "boolean",
-                "description": "Invert image pixel intensity before running network. Defaults to False."
+                "type": "boolean"
               },
               "diameter": {
                 "title": "Diameter",
-                "type": "number",
-                "description": "Diameter used to rescale the image to 30 pix cell diameter. Defaults to None."
+                "type": "number"
               },
               "flow_threshold": {
                 "default": 0.4,
                 "title": "Flow Threshold",
-                "type": "number",
-                "description": "Flow error threshold (all cells with errors below threshold are kept) (not used for 3D). Defaults to 0.4."
+                "type": "number"
               },
               "cellprob_threshold": {
                 "default": 0.0,
                 "title": "Cellprob Threshold",
-                "type": "number",
-                "description": "All pixels with value above threshold kept for masks, decrease to find more and larger masks. Defaults to 0.0."
+                "type": "number"
               },
               "flow3D_smooth": {
                 "default": 0,
                 "title": "Flow3D Smooth",
-                "type": "integer",
-                "description": "If do_3D and flow3D_smooth>0, smooth flows with gaussian filter of this stddev. Defaults to 0."
+                "type": "integer"
               },
               "anisotropy": {
                 "title": "Anisotropy",
-                "type": "number",
-                "description": "For 3D segmentation, rescaling factor (e.g. set to 2.0 if Z is sampled half as dense as X or Y). Defaults to None."
+                "type": "number"
               },
               "do_3D": {
                 "default": true,
                 "title": "Do 3D",
-                "type": "boolean",
-                "description": "Whether to perform 3D segmentation. If set to False for a 3D image, the image will be segmented by XY planes independently and then stitched together in 3D using the stitch_threshold parameter. If set to True for a 2D image, this will be ignored."
+                "type": "boolean"
               },
               "stitch_threshold": {
                 "default": 0.0,
                 "title": "Stitch Threshold",
-                "type": "number",
-                "description": "If stitch_threshold>0.0 and not do_3D, masks are stitched in 3D to return volume segmentation. Defaults to 0.0."
+                "type": "number"
               },
               "min_size": {
                 "default": 15,
                 "title": "Min Size",
-                "type": "integer",
-                "description": "All ROIs below this size, in pixels, will be discarded. Defaults to 15."
+                "type": "integer"
               },
               "max_size_fraction": {
                 "default": 0.4,
                 "title": "Max Size Fraction",
-                "type": "number",
-                "description": "Masks larger than max_size_fraction of total image size are removed. Defaults to 0.4."
+                "type": "number"
               },
               "niter": {
                 "title": "Niter",
-                "type": "integer",
-                "description": "Number of iterations for dynamics computation. If None, it is set proportional to the diameter. Defaults to None."
+                "type": "integer"
               },
               "augment": {
                 "default": false,
                 "title": "Augment",
-                "type": "boolean",
-                "description": "Tiles image with overlapping tiles and flips overlapped regions to augment. Defaults to False."
+                "type": "boolean"
               },
               "tile_overlap": {
                 "default": 0.1,
                 "title": "Tile Overlap",
-                "type": "number",
-                "description": "Fraction of overlap of tiles when computing flows. Defaults to 0.1."
+                "type": "number"
               },
               "bsize": {
                 "default": 256,
                 "title": "Bsize",
-                "type": "integer",
-                "description": "Block size for tiles, recommended to keep at 224, like in training. Defaults to 256."
+                "type": "integer"
               },
               "verbose": {
                 "default": false,
                 "title": "Verbose",
-                "type": "boolean",
-                "description": "Whether cellpose logs should be active. Defaults to False."
+                "type": "boolean"
               }
             },
             "title": "AdvancedCellposeParameters",
@@ -166,8 +148,7 @@
                   "index"
                 ],
                 "title": "Mode",
-                "type": "string",
-                "description": "Specifies how to interpret the identifier. Can be \"label\", \"wavelength_id\", or \"index\" (must be an integer)."
+                "type": "string"
               },
               "identifiers": {
                 "items": {
@@ -176,14 +157,12 @@
                 "maxItems": 3,
                 "minItems": 1,
                 "title": "Identifiers",
-                "type": "array",
-                "description": "Unique identifiers for the channels. This can be channel labels, wavelength IDs, or indices. At least one and at most three identifiers must be provided."
+                "type": "array"
               },
               "skip_if_missing": {
                 "default": false,
                 "title": "Skip If Missing",
-                "type": "boolean",
-                "description": "If True and the specified channel(s) are not found in the image, the segmentation will be skipped instead of raising an error. Defaults to False."
+                "type": "boolean"
               }
             },
             "required": [
@@ -199,14 +178,12 @@
                 "const": "Create Masking ROI Table",
                 "default": "Create Masking ROI Table",
                 "title": "Mode",
-                "type": "string",
-                "description": "Mode to create masking ROI table."
+                "type": "string"
               },
               "table_name": {
                 "default": "{label_name}_masking_ROI_table",
                 "title": "Table Name",
-                "type": "string",
-                "description": "Name of the masking ROI table to be created. Defaults to \"{label_name}_masking_ROI_table\", where {label_name} is the name of the label image used for segmentation."
+                "type": "string"
               }
             },
             "title": "CreateMaskingRoiTable",
@@ -219,32 +196,27 @@
                 "const": "custom",
                 "default": "custom",
                 "title": "Mode",
-                "type": "string",
-                "description": "Use custom normalization with full control over parameters."
+                "type": "string"
               },
               "normalize": {
                 "default": true,
                 "title": "Normalize",
-                "type": "boolean",
-                "description": "Whether to perform normalization. Defaults to True."
+                "type": "boolean"
               },
               "norm3D": {
                 "default": false,
                 "title": "Norm3D",
-                "type": "boolean",
-                "description": "Whether to normalize in 3D. If True, the entire 3D stack will be normalized per channel. If False, normalization is applied per Z-slice. Defaults to False."
+                "type": "boolean"
               },
               "invert": {
                 "default": false,
                 "title": "Invert",
-                "type": "boolean",
-                "description": "Whether to invert the image. Useful if cells are dark instead of bright. Defaults to False."
+                "type": "boolean"
               },
               "use_lowhigh": {
                 "default": false,
                 "title": "Use Lowhigh",
-                "type": "boolean",
-                "description": "Whether to use lowhigh normalization. If False, percentile normalization will be used instead. Defaults to False."
+                "type": "boolean"
               },
               "lowhigh": {
                 "default": [
@@ -262,8 +234,7 @@
                   }
                 ],
                 "title": "Lowhigh",
-                "type": "array",
-                "description": "The lower and upper bounds for normalization. Incompatible with smoothing and sharpening. Defaults to (0.0, 1000.0)."
+                "type": "array"
               },
               "percentile": {
                 "default": [
@@ -281,38 +252,32 @@
                   }
                 ],
                 "title": "Percentile",
-                "type": "array",
-                "description": "The lower and upper percentiles for normalization. Each value should be between 0 and 100. If use_lowhigh is True, this parameter is ignored. Defaults to (1.0, 99.0)."
+                "type": "array"
               },
               "sharpen_radius": {
                 "default": 0.0,
                 "title": "Sharpen Radius",
-                "type": "number",
-                "description": "The radius for sharpening the image. Defaults to 0.0."
+                "type": "number"
               },
               "smooth_radius": {
                 "default": 0.0,
                 "title": "Smooth Radius",
-                "type": "number",
-                "description": "The radius for smoothing the image. Defaults to 0.0."
+                "type": "number"
               },
               "tile_norm_blocksize": {
                 "default": 0,
                 "title": "Tile Norm Blocksize",
-                "type": "integer",
-                "description": "The block size for tile-based normalization. Defaults to 0."
+                "type": "integer"
               },
               "tile_norm_smooth3D": {
                 "default": 1,
                 "title": "Tile Norm Smooth3D",
-                "type": "integer",
-                "description": "The smoothness factor for tile-based normalization in 3D. Defaults to 1."
+                "type": "integer"
               },
               "axis": {
                 "default": -1,
                 "title": "Axis",
-                "type": "integer",
-                "description": "The channel axis to loop over for normalization. Defaults to -1."
+                "type": "integer"
               }
             },
             "title": "CustomNorm",
@@ -325,8 +290,7 @@
                 "const": "default",
                 "default": "default",
                 "title": "Mode",
-                "type": "string",
-                "description": "Use Cellpose default normalization (0-1 rescaling and 1%-99% percentile clipping). All other parameters are ignored."
+                "type": "string"
               }
             },
             "title": "DefaultNorm",
@@ -468,8 +432,7 @@
                 "const": "none",
                 "default": "none",
                 "title": "Mode",
-                "type": "string",
-                "description": "Do not apply any normalization, and ignore all other parameters."
+                "type": "string"
               }
             },
             "title": "NoNorm",
@@ -558,8 +521,7 @@
                 "const": "Skip Creating Masking ROI Table",
                 "default": "Skip Creating Masking ROI Table",
                 "title": "Mode",
-                "type": "string",
-                "description": "Mode to skip creating masking ROI table."
+                "type": "string"
               }
             },
             "title": "SkipCreateMaskingRoiTable",
