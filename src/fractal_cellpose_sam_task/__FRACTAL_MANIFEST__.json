@@ -142,6 +142,7 @@
             "properties": {
               "mode": {
                 "default": "label",
+                "description": "Specifies how to interpret the identifiers. Can be \"label\", \"wavelength_id\", or\n\"index\" (must be an integer).",
                 "enum": [
                   "label",
                   "wavelength_id",
@@ -151,6 +152,7 @@
                 "type": "string"
               },
               "identifiers": {
+                "description": "Unique identifiers for the channels. This can be channel labels, wavelength IDs, or\nindices, depending on the mode.\nAt least one and at most three identifiers must be provided.",
                 "items": {
                   "type": "string"
                 },
@@ -161,6 +163,7 @@
               },
               "skip_if_missing": {
                 "default": false,
+                "description": "If True and the specified channel(s) are not found in the image,\nthe segmentation will be skipped instead of raising an error. Defaults to False.",
                 "title": "Skip If Missing",
                 "type": "boolean"
               }

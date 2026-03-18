@@ -257,22 +257,24 @@ class CellposeChannels(BaseModel):
     """Cellpose channels configuration.
 
     This model is used to select a channel by label, wavelength ID, or index.
-
-    Attributes:
-        mode (Literal["label", "wavelength_id", "index"]): Specifies how to
-            interpret the identifier. Can be "label", "wavelength_id", or
-            "index" (must be an integer).
-        identifiers (list[str]): Unique identifiers for the channels. This can
-            be channel labels, wavelength IDs, or indices. At least one and at
-            most three identifiers must be provided.
-        skip_if_missing (bool): If True and the specified channel(s) are not found in
-            the image, the segmentation will be skipped instead of raising an error.
-            Defaults to False.
     """
 
     mode: Literal["label", "wavelength_id", "index"] = "label"
+    """
+    Specifies how to interpret the identifiers. Can be "label", "wavelength_id", or
+    "index" (must be an integer).
+    """
     identifiers: list[str] = Field(min_length=1, max_length=3)
+    """
+    Unique identifiers for the channels. This can be channel labels, wavelength IDs, or
+    indices, depending on the mode.
+    At least one and at most three identifiers must be provided.
+    """
     skip_if_missing: bool = False
+    """
+    If True and the specified channel(s) are not found in the image,
+    the segmentation will be skipped instead of raising an error. Defaults to False.
+    """
 
     @field_validator("identifiers", mode="after")
     @classmethod
