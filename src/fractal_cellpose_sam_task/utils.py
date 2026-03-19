@@ -2,41 +2,14 @@
 
 from typing import Annotated, Literal
 
+from fractal_tasks_utils.segmentation import IteratorConfig, MaskingConfig
 from ngio import ChannelSelectionModel
 from pydantic import BaseModel, Field, field_validator
 
-
-class MaskingConfiguration(BaseModel):
-    """Masking configuration.
-
-    Attributes:
-        mode (Literal["Table Name", "Label Name"]): Mode of masking to be applied.
-            If "Table Name", the identifier refers to a masking table name.
-            If "Label Name", the identifier refers to a label image name.
-        identifier (str | None): Name of the masking table or label image
-            depending on the mode.
-    """
-
-    mode: Literal["Table Name", "Label Name"] = "Table Name"
-    identifier: str | None = None
-
-
-class IteratorConfiguration(BaseModel):
-    """Advanced Masking configuration.
-
-    Attributes:
-        masking (MaskingConfiguration | None): If set, the segmentation will be
-            performed only within the confines of the specified mask. A mask can be
-            specified either by a label image or a Masking ROI table.
-        roi_table (str | None): Name of a ROI table. If set, the segmentation
-            will be applied to each ROI in the table individually. This option can
-            be combined with masking.
-    """
-
-    masking: MaskingConfiguration | None = Field(
-        default=None, title="Masking Iterator Configuration"
-    )
-    roi_table: str | None = Field(default=None, title="Iterate Over ROIs")
+__all__ = [
+    "IteratorConfig",
+    "MaskingConfig",
+]
 
 
 class DefaultNorm(BaseModel):
@@ -284,22 +257,24 @@ class CellposeChannels(BaseModel):
     """Cellpose channels configuration.
 
     This model is used to select a channel by label, wavelength ID, or index.
-
-    Attributes:
-        mode (Literal["label", "wavelength_id", "index"]): Specifies how to
-            interpret the identifier. Can be "label", "wavelength_id", or
-            "index" (must be an integer).
-        identifiers (list[str]): Unique identifiers for the channels. This can
-            be channel labels, wavelength IDs, or indices. At least one and at
-            most three identifiers must be provided.
-        skip_if_missing (bool): If True and the specified channel(s) are not found in
-            the image, the segmentation will be skipped instead of raising an error.
-            Defaults to False.
     """
 
     mode: Literal["label", "wavelength_id", "index"] = "label"
+    """
+    Specifies how to interpret the identifiers. Can be "label", "wavelength_id", or
+    "index" (must be an integer).
+    """
     identifiers: list[str] = Field(min_length=1, max_length=3)
+    """
+    Unique identifiers for the channels. This can be channel labels, wavelength IDs, or
+    indices, depending on the mode.
+    At least one and at most three identifiers must be provided.
+    """
     skip_if_missing: bool = False
+    """
+    If True and the specified channel(s) are not found in the image,
+    the segmentation will be skipped instead of raising an error. Defaults to False.
+    """
 
     @field_validator("identifiers", mode="after")
     @classmethod

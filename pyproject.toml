@@ -27,7 +27,8 @@ requires-python = ">=3.11,<3.15"
 dependencies = [
     "ngio>=0.5.3,<0.6",
     "cellpose>=4.0.6,<5.0",
-    "fractal-task-tools>=0.3,<0.4",
+    "fractal-tasks-utils>=0.1.2,<0.2",
+    "fractal-task-tools>=0.4.0,<0.5.0",
     "scikit-image",
 ]
 
@@ -39,8 +40,6 @@ test = ["pytest", "requests", "jsonschema", "devtools"]
 
 dev = [
     "notebook",
-    "napari",
-    "pyqt5",
     "devtools",
     "hatch",
     "pytest",
