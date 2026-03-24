@@ -25,11 +25,10 @@ authors = [{ name = "Lorenzo Cerrone", email = "lorenzo.cerrone@uzh.ch" }]
 # Required Python version and dependencies
 requires-python = ">=3.11,<3.15"
 dependencies = [
-    "ngio>=0.5.3,<0.6",
+    "ngio>=0.5.8,<0.6",
     "cellpose>=4.0.6,<5.0",
-    "fractal-tasks-utils>=0.1.2,<0.2",
+    "fractal-tasks-utils>=0.1.4,<0.2",
     "fractal-task-tools>=0.4.0,<0.5.0",
-    "scikit-image",
 ]
 
 # Optional dependencies (e.g. for `pip install -e ".[dev]"`, see
