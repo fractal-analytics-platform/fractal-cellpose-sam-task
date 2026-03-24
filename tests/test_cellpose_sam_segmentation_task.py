@@ -6,8 +6,6 @@ from fractal_tasks_utils.segmentation import IteratorConfig, MaskingConfig
 from fractal_tasks_utils.segmentation._transforms import SegmentationTransformConfig
 from fractal_tasks_utils.transforms import (
     GaussianBlurConfig,
-    HistogramEqualizationConfig,
-    MedianFilterConfig,
     SizeFilterConfig,
 )
 from ngio import OmeZarrContainer, Roi, create_synthetic_ome_zarr
@@ -115,8 +113,6 @@ def test_cellpose_sam_segmentation_task(
     pre_post = SegmentationTransformConfig(
         pre_process=[
             GaussianBlurConfig(sigma_xy=1.0),
-            MedianFilterConfig(size_xy=3),
-            HistogramEqualizationConfig(kernel_size_xy=4, clip_limit=0.1),
         ],
         post_process=[SizeFilterConfig(min_size=10)],
     )
@@ -171,7 +167,9 @@ def test_cellpose_sam_segmentation_task_masked(
     )
 
     iter_config = IteratorConfig(
-        masking=MaskingConfig(mode="Label Name", identifier="nuclei_mask"),
+        masking=MaskingConfig(mode="Masking",
+                              masking_source="Label Name",
+                              identifier="nuclei_mask"),
         roi_table=None,
     )
 
