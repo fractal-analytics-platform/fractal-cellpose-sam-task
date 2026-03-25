@@ -107,10 +107,12 @@ ENV/
 
 # IDE settings
 .vscode/
-.idea/# pixi environments
+.idea/
+.claude/
+
+# pixi environments
 .pixi/*
 !.pixi/config.toml
-pixi.lock
 
 # Zarr
 *.zarr
