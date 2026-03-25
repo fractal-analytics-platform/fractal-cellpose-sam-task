@@ -124,6 +124,11 @@ class CreateMaskingRoiTable(BaseModel):
     Name of the masking ROI table to be created. {label_name} is the name of the
     label image used for segmentation.
     """
+    table_backend: Literal["anndata", "json", "csv", "parquet"] = "anndata"
+    """
+    Backend to use for storing the masking ROI table. Options are "anndata", "json",
+    "csv", and "parquet".
+    """
 
     def get_table_name(self, label_name: str) -> str:
         """Get the actual table name by replacing placeholder.

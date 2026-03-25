@@ -207,6 +207,18 @@
                 "description": "Name of the masking ROI table to be created. {label_name} is the name of the\nlabel image used for segmentation.",
                 "title": "Table Name",
                 "type": "string"
+              },
+              "table_backend": {
+                "default": "anndata",
+                "description": "Backend to use for storing the masking ROI table. Options are \"anndata\", \"json\",\n\"csv\", and \"parquet\".",
+                "enum": [
+                  "anndata",
+                  "json",
+                  "csv",
+                  "parquet"
+                ],
+                "title": "Table Backend",
+                "type": "string"
               }
             },
             "title": "CreateMaskingRoiTable",
