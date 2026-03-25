@@ -282,7 +282,10 @@ def cellpose_sam_segmentation_task(
         label = ome_zarr.get_label(name=label_name, path=level_path)
         masking_roi_table = label.build_masking_roi_table()
         ome_zarr.add_table(
-            name=table_name, table=masking_roi_table, overwrite=overwrite
+            name=table_name,
+            table=masking_roi_table,
+            overwrite=overwrite,
+            backend=create_masking_roi_table.table_backend,
         )
     return None
 

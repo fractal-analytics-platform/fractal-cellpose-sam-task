@@ -167,9 +167,9 @@ def test_cellpose_sam_segmentation_task_masked(
     )
 
     iter_config = IteratorConfig(
-        masking=MaskingConfig(mode="Masking",
-                              masking_source="Label Name",
-                              identifier="nuclei_mask"),
+        masking=MaskingConfig(
+            mode="Masking", masking_source="Label Name", identifier="nuclei_mask"
+        ),
         roi_table=None,
     )
 
