@@ -71,9 +71,17 @@
                 "type": "boolean"
               },
               "diameter": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
                 "description": "Diameter used to rescale the image to 30 pix cell diameter.",
-                "title": "Diameter",
-                "type": "number"
+                "title": "Diameter"
               },
               "flow_threshold": {
                 "default": 0.4,
@@ -94,9 +102,17 @@
                 "type": "integer"
               },
               "anisotropy": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
                 "description": "For 3D segmentation, rescaling factor (e.g. set to 2.0 if Z is sampled half as\ndense as X or Y).",
-                "title": "Anisotropy",
-                "type": "number"
+                "title": "Anisotropy"
               },
               "do_3D": {
                 "default": true,
@@ -123,9 +139,17 @@
                 "type": "number"
               },
               "niter": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
                 "description": "Number of iterations for dynamics computation. If None, it is set proportional to\nthe diameter.",
-                "title": "Niter",
-                "type": "integer"
+                "title": "Niter"
               },
               "augment": {
                 "default": false,
@@ -362,9 +386,17 @@
                 "type": "number"
               },
               "sigma_z": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
                 "description": "Standard deviation for Gaussian kernel in Z axis.\nIf not specified, no blurring is applied in Z axis.",
-                "title": "Sigma Z",
-                "type": "number"
+                "title": "Sigma Z"
               }
             },
             "title": "GaussianBlurConfig",
@@ -381,14 +413,30 @@
                 "type": "string"
               },
               "kernel_size_xy": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
                 "description": "Shape of kernel in XY plane. If None, the default is 1/8 of image height by\n1/8 of its width.",
-                "title": "Kernel Size XY",
-                "type": "integer"
+                "title": "Kernel Size XY"
               },
               "kernel_size_z": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
                 "description": "Shape of kernel in Z axis. If None, the default is 1/8 of image height by\n1/8 of its width.",
-                "title": "Kernel Size Z",
-                "type": "integer"
+                "title": "Kernel Size Z"
               },
               "clip_limit": {
                 "default": 0.01,
@@ -434,9 +482,17 @@
                 "title": "Masking Iterator Configuration"
               },
               "roi_table": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
                 "description": "Name of a ROI table. If set, the segmentation will be applied to each ROI\nin the table individually. This option can be combined with masking.",
-                "title": "Iterate Over ROIs",
-                "type": "string"
+                "title": "Iterate Over ROIs"
               }
             },
             "title": "IteratorConfig",
@@ -492,9 +548,17 @@
                 "type": "integer"
               },
               "size_z": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
                 "description": "Size in pixels of the median filter in Z axis.\nIf not specified, no filtering is applied in Z axis.",
-                "title": "Size Z",
-                "type": "integer"
+                "title": "Size Z"
               }
             },
             "title": "MedianFilterConfig",
@@ -638,18 +702,42 @@
             "description": "Name of the resulting label image. Optionally, it can contain a placeholder \"{channel_identifier}\" which will be replaced by the first channel identifier specified in the channels parameter."
           },
           "level_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
             "title": "Level Path",
-            "type": "string",
             "description": "If the OME-Zarr has multiple resolution levels, the level to use can be specified here. If not provided, the highest resolution level will be used."
           },
           "iterator_configuration": {
-            "$ref": "#/$defs/IteratorConfig",
+            "anyOf": [
+              {
+                "$ref": "#/$defs/IteratorConfig"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
             "title": "Iterator Configuration",
             "description": "Configuration for the segmentation iterator. This can be used to specify masking and/or a ROI table."
           },
           "custom_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
             "title": "Custom Model",
-            "type": "string",
             "description": "Path to a custom Cellpose model. If not set, the default \"cpsam\" model will be used."
           },
           "advanced_parameters": {
@@ -728,6 +816,6 @@
     }
   ],
   "has_args_schemas": true,
-  "args_schema_version": "pydantic_v2",
+  "args_schema_version": "fractal_schema_v1",
   "authors": "Lorenzo Cerrone"
 }
