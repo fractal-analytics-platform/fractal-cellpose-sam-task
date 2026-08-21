@@ -7,6 +7,12 @@ build-backend = "hatchling.build"
 [tool.hatch.version]
 source = "vcs"
 
+# Temporary: allow the git-ref fractal-tasks-utils dependency during the
+# ngio 1.1 migration. Remove once fractal-tasks-utils publishes a release
+# built on ngio 1.1.
+[tool.hatch.metadata]
+allow-direct-references = true
+
 # read more about configuring hatch at:
 # https://hatch.pypa.io/latest/config/build/
 [tool.hatch.build.targets.wheel]
@@ -43,9 +49,9 @@ authors = [{ name = "Lorenzo Cerrone", email = "lorenzo.cerrone@uzh.ch" }]
 # Required Python version and dependencies
 requires-python = ">=3.11,<3.15"
 dependencies = [
-    "ngio>=0.5.8,<0.6",
+    "ngio==1.1.0a2",
     "cellpose>=4.0.6,<5.0",
-    "fractal-tasks-utils>=0.1.4,<0.2",
+    "fractal-tasks-utils @ git+https://github.com/fractal-analytics-platform/fractal-tasks-utils.git@refactor/ngio-1.1",
     "fractal-task-tools>=0.5.0,<0.6.0",
 ]
 
