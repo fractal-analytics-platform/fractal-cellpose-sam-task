@@ -43,9 +43,9 @@ authors = [{ name = "Lorenzo Cerrone", email = "lorenzo.cerrone@uzh.ch" }]
 # Required Python version and dependencies
 requires-python = ">=3.11,<3.15"
 dependencies = [
-    "ngio>=0.5.8,<0.6",
+    "ngio>=1.1.0,<1.2",
     "cellpose>=4.0.6,<5.0",
-    "fractal-tasks-utils>=0.1.4,<0.2",
+    "fractal-tasks-utils>=0.2.0,<0.3",
     "fractal-task-tools>=0.5.0,<0.6.0",
 ]
 

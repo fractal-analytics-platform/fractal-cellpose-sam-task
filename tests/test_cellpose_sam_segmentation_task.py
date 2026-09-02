@@ -365,12 +365,15 @@ def test_cellpose_sam_segmentation_with_masking_roi_table(
     assert isinstance(table, MaskingRoiTable)
     if not is_github_or_fast:
         assert len(table.rois()) == 5
-        expected_roi = (
-            "name='1' "
-            "slices=[x: 0.0->3.9000000000000004, y: 0.0->8.125, z: 0.0->1.0] "
-            "label=1 space='world'"
-        )
-        assert str(table.rois()[0]) == expected_roi
+        roi = table.rois()[0]
+        assert roi.name == "1"
+        assert roi.label == 1
+        assert roi.space == "world"
+        assert [(s.axis_name, s.start, s.end) for s in roi.slices] == [
+            ("x", 0.0, 3.9000000000000004),
+            ("y", 0.0, 8.125),
+            ("z", 0.0, 1.0),
+        ]
     else:
         assert len(table.rois()) >= 1
 
