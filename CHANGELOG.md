@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.3.0
+## v0.2.3
 
 - Migrate to ngio 1.1 (`ngio>=1.1.0,<1.2`, up from `ngio>=0.5.8,<0.6`) and to
   fractal-tasks-utils 0.2.0, which is built on the same ngio line.
