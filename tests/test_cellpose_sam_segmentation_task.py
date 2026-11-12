@@ -1,5 +1,7 @@
+import inspect
 from pathlib import Path
 
+import cellpose.models
 import numpy as np
 import pytest
 from fractal_tasks_utils.segmentation import IteratorConfig, MaskingConfig
@@ -23,23 +25,46 @@ from fractal_cellpose_sam_task.utils import (
     SkipCreateMaskingRoiTable,
 )
 
+# Keep a reference to the real class before any test monkeypatches it, so that
+# the mocks can validate their call arguments against the installed Cellpose API.
+_RealCellposeModel = cellpose.models.CellposeModel
+_REAL_INIT_SIGNATURE = inspect.signature(_RealCellposeModel.__init__)
+_REAL_EVAL_SIGNATURE = inspect.signature(_RealCellposeModel.eval)
 
-class MockCellposeModel:
+
+class _SignatureCheckedCellposeModel:
+    """Base mock that rejects arguments the real CellposeModel would not accept.
+
+    Calls are bound against the signatures of the installed
+    `cellpose.models.CellposeModel`, so renamed or removed arguments raise
+    `TypeError` exactly as they would with the real model.
+    """
+
     def __init__(self, *args, **kwargs):
-        pass
+        _REAL_INIT_SIGNATURE.bind(self, *args, **kwargs)
 
     def eval(self, image, **kwargs):
+        _REAL_EVAL_SIGNATURE.bind(self, image, **kwargs)
+        return self._predict(image)
+
+    def _predict(self, image):
+        raise NotImplementedError
+
+
+class MockCellposeModel(_SignatureCheckedCellposeModel):
+    def _predict(self, image):
         masks = np.ones(image.shape[1:], dtype=np.uint32)
         return masks, None, None
 
 
-class MockCellposeModelWithEmptyFrames:
+class MockCellposeModelWithEmptyFrames(_SignatureCheckedCellposeModel):
     """Mock that returns empty masks on every other call to simulate empty frames."""
 
     def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._call_count = 0
 
-    def eval(self, image, **kwargs):
+    def _predict(self, image):
         self._call_count += 1
         if self._call_count % 2 == 0:
             # Return empty mask for even calls
@@ -61,6 +86,23 @@ def check_label_quality(
     ground_truth = ome_zarr.get_label(gt_name).get_as_numpy(axes_order="tzyx", t=0)
     are, _, _ = adapted_rand_error(ground_truth, prediction)
     assert are < 0.1, f"Adapted Rand Error too high: {are}>0.1. Labels might be wrong."
+
+
+@pytest.mark.parametrize(
+    "mock_cls", [MockCellposeModel, MockCellposeModelWithEmptyFrames]
+)
+def test_mock_rejects_arguments_unknown_to_cellpose(mock_cls):
+    """The mocks must fail like the real model on arguments Cellpose doesn't accept."""
+    with pytest.raises(TypeError):
+        mock_cls(not_a_cellpose_argument=True)
+
+    model = mock_cls(gpu=False, pretrained_model="cpsam")
+    image = np.zeros((1, 8, 8), dtype=np.float32)
+    with pytest.raises(TypeError):
+        model.eval(image, not_a_cellpose_argument=True)
+
+    masks, _, _ = model.eval(image, channel_axis=0)
+    assert masks.shape == (8, 8)
 
 
 @pytest.mark.parametrize(
