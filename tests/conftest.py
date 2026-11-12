@@ -1,6 +1,3 @@
-import pytest
-
-
 def pytest_addoption(parser):
     parser.addoption(
         "--fast",
@@ -11,9 +8,3 @@ def pytest_addoption(parser):
             "that validates call arguments against the installed Cellpose API"
         ),
     )
-
-
-@pytest.fixture
-def is_fast(request):
-    """Whether the Cellpose model should be mocked (`--fast` option)."""
-    return request.config.getoption("--fast")

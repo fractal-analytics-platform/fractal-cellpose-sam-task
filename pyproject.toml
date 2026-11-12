@@ -110,6 +110,7 @@ skip-magic-trailing-comma = false # default is false
 addopts = "--strict-markers"
 markers = [
     "real_model: representative tests to run against the real Cellpose model (select with `-m real_model`, without `--fast`)",
+    "cellpose_mock(mock_cls=MockCellposeModel): always mock the Cellpose model, even without `--fast`",
 ]
 
 [tool.pixi.workspace]

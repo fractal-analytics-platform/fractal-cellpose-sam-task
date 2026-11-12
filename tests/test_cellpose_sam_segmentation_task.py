@@ -14,6 +14,7 @@ from ngio import OmeZarrContainer, Roi, create_synthetic_ome_zarr
 from ngio.tables import MaskingRoiTable, RoiTable
 from skimage.metrics import adapted_rand_error
 
+import fractal_cellpose_sam_task.cellpose_sam_segmentation_task as task_module
 from fractal_cellpose_sam_task.cellpose_sam_segmentation_task import (
     cellpose_sam_segmentation_task,
 )
@@ -75,6 +76,37 @@ class MockCellposeModelWithEmptyFrames(_SignatureCheckedCellposeModel):
         return masks, None, None
 
 
+@pytest.fixture(autouse=True)
+def uses_real_model(request, monkeypatch) -> bool:
+    """Replace the Cellpose model with a mock, unless the real model should run.
+
+    The real model runs unless `--fast` is given or the test is marked
+    `@pytest.mark.cellpose_mock`. Tests with that marker are always mocked, using
+    the `mock_cls` keyword argument of the marker (default: `MockCellposeModel`).
+    The patch is undone by `monkeypatch` at the end of each test.
+
+    Returns:
+        True if the test runs against the real Cellpose model.
+    """
+    mock_marker = request.node.get_closest_marker("cellpose_mock")
+    if mock_marker is not None and request.node.get_closest_marker("real_model"):
+        pytest.fail(
+            "A test cannot be marked both `real_model` and `cellpose_mock`",
+            pytrace=False,
+        )
+    if mock_marker is None and not request.config.getoption("--fast"):
+        return True
+
+    mock_cls = MockCellposeModel
+    if mock_marker is not None:
+        mock_cls = mock_marker.kwargs.get("mock_cls", MockCellposeModel)
+    monkeypatch.setattr(cellpose.models, "CellposeModel", mock_cls)
+    # The task resolves `models.CellposeModel` at call time; fail loudly if it
+    # ever stops doing so (e.g. `from cellpose.models import CellposeModel`).
+    assert task_module.models.CellposeModel is mock_cls
+    return False
+
+
 def check_label_quality(
     ome_zarr: OmeZarrContainer, label_name: str, gt_name: str = "nuclei"
 ):
@@ -121,7 +153,7 @@ def test_mock_rejects_arguments_unknown_to_cellpose(mock_cls):
     ],
 )
 def test_cellpose_sam_segmentation_task(
-    monkeypatch, is_fast, tmp_path: Path, shape: tuple[int, ...], axes: str
+    tmp_path: Path, shape: tuple[int, ...], axes: str
 ):
     """Base test for the cellpose segmentation task."""
     test_data_path = tmp_path / "data.zarr"
@@ -141,16 +173,6 @@ def test_cellpose_sam_segmentation_task(
     )
 
     channel = CellposeChannels(mode="label", identifiers=["DAPI_0"])
-
-    if is_fast:
-        # Mock Cellpose model in fast mode to avoid downloading the model
-        import cellpose.models
-
-        monkeypatch.setattr(
-            cellpose.models,
-            "CellposeModel",
-            MockCellposeModel,
-        )
 
     pre_post = SegmentationTransformConfig(
         pre_process=[
@@ -185,7 +207,7 @@ def test_cellpose_sam_segmentation_task(
     ],
 )
 def test_cellpose_sam_segmentation_task_masked(
-    monkeypatch, is_fast, tmp_path: Path, shape: tuple[int, ...], axes: str
+    tmp_path: Path, shape: tuple[int, ...], axes: str
 ):
     """Test the cellpose segmentation task with a masking configuration."""
     test_data_path = tmp_path / "data.zarr"
@@ -215,16 +237,6 @@ def test_cellpose_sam_segmentation_task_masked(
         roi_table=None,
     )
 
-    if is_fast:
-        # Mock Cellpose model in fast mode to avoid downloading the model
-        import cellpose.models
-
-        monkeypatch.setattr(
-            cellpose.models,
-            "CellposeModel",
-            MockCellposeModel,
-        )
-
     cellpose_sam_segmentation_task(
         zarr_url=str(test_data_path),
         channels=channel,
@@ -234,12 +246,10 @@ def test_cellpose_sam_segmentation_task_masked(
 
     # Check that the label image was created
     assert "DAPI_0_segmented" in ome_zarr.list_labels()
-    if is_fast:
-        return
 
 
 @pytest.mark.real_model
-def test_cellpose_sam_segmentation_task_no_mock(monkeypatch, is_fast, tmp_path: Path):
+def test_cellpose_sam_segmentation_task_no_mock(uses_real_model, tmp_path: Path):
     """Base test for the cellpose segmentation task without mocking."""
     test_data_path = tmp_path / "data.zarr"
     shape = (1, 64, 64)
@@ -256,24 +266,17 @@ def test_cellpose_sam_segmentation_task_no_mock(monkeypatch, is_fast, tmp_path: 
 
     channel = CellposeChannels(mode="label", identifiers=["DAPI_0"])
 
-    if is_fast:
-        import cellpose.models
-
-        monkeypatch.setattr(cellpose.models, "CellposeModel", MockCellposeModel)
-
     cellpose_sam_segmentation_task(
         zarr_url=str(test_data_path), channels=channel, overwrite=False
     )
 
     # Check that the label image was created
     assert "DAPI_0_segmented" in ome_zarr.list_labels()
-    if not is_fast:
+    if uses_real_model:
         check_label_quality(ome_zarr, "DAPI_0_segmented")
 
 
-def test_roi_table_cropping_cellpose_sam_segmentation_task_no_mock(
-    monkeypatch, is_fast, tmp_path: Path
-):
+def test_roi_table_cropping_cellpose_sam_segmentation_task_no_mock(tmp_path: Path):
     """Base test for the cellpose segmentation task without mocking."""
     test_data_path = tmp_path / "data.zarr"
     shape = (2, 2, 64, 64)
@@ -289,11 +292,6 @@ def test_roi_table_cropping_cellpose_sam_segmentation_task_no_mock(
     )
 
     channel = CellposeChannels(mode="label", identifiers=["DAPI_0"])
-
-    if is_fast:
-        import cellpose.models
-
-        monkeypatch.setattr(cellpose.models, "CellposeModel", MockCellposeModel)
 
     cellpose_sam_segmentation_task(
         zarr_url=str(test_data_path), channels=channel, overwrite=False
@@ -323,7 +321,7 @@ def test_roi_table_cropping_cellpose_sam_segmentation_task_no_mock(
 
 
 @pytest.mark.real_model
-def test_custom_norm_no_mock(monkeypatch, is_fast, tmp_path: Path):
+def test_custom_norm_no_mock(uses_real_model, tmp_path: Path):
     """Base test for the cellpose segmentation task without mocking."""
     test_data_path = tmp_path / "data.zarr"
     shape = (1, 64, 64)
@@ -340,11 +338,6 @@ def test_custom_norm_no_mock(monkeypatch, is_fast, tmp_path: Path):
 
     channel = CellposeChannels(mode="label", identifiers=["DAPI_0"])
 
-    if is_fast:
-        import cellpose.models
-
-        monkeypatch.setattr(cellpose.models, "CellposeModel", MockCellposeModel)
-
     advanced_params = AdvancedCellposeParameters(normalization=CustomNorm())
     cellpose_sam_segmentation_task(
         zarr_url=str(test_data_path),
@@ -355,12 +348,12 @@ def test_custom_norm_no_mock(monkeypatch, is_fast, tmp_path: Path):
 
     # Check that the label image was created
     assert "DAPI_0_segmented" in ome_zarr.list_labels()
-    if not is_fast:
+    if uses_real_model:
         check_label_quality(ome_zarr, "DAPI_0_segmented")
 
 
 def test_cellpose_sam_segmentation_with_masking_roi_table(
-    monkeypatch, is_fast, tmp_path: Path
+    uses_real_model, tmp_path: Path
 ):
     """Base test for the cellpose segmentation task without mocking."""
     test_data_path = tmp_path / "data.zarr"
@@ -377,11 +370,6 @@ def test_cellpose_sam_segmentation_with_masking_roi_table(
     )
 
     channel = CellposeChannels(mode="label", identifiers=["DAPI_0"])
-
-    if is_fast:
-        import cellpose.models
-
-        monkeypatch.setattr(cellpose.models, "CellposeModel", MockCellposeModel)
 
     label_name = "custom_label_name"
     cellpose_sam_segmentation_task(
@@ -405,7 +393,7 @@ def test_cellpose_sam_segmentation_with_masking_roi_table(
     assert f"{label_name}_masking_ROI_table" in ome_zarr.list_tables()
     table = ome_zarr.get_table(f"{label_name}_masking_ROI_table")
     assert isinstance(table, MaskingRoiTable)
-    if not is_fast:
+    if uses_real_model:
         assert len(table.rois()) == 5
         roi = table.rois()[0]
         assert roi.name == "1"
@@ -420,7 +408,8 @@ def test_cellpose_sam_segmentation_with_masking_roi_table(
         assert len(table.rois()) >= 1
 
 
-def test_empty_frames_do_not_reset_labels(monkeypatch, tmp_path: Path):
+@pytest.mark.cellpose_mock(mock_cls=MockCellposeModelWithEmptyFrames)
+def test_empty_frames_do_not_reset_labels(tmp_path: Path):
     """Test that empty frames don't cause label counter to reset (issue #16)."""
     test_data_path = tmp_path / "data.zarr"
     # 3 time points, no channel dimension
@@ -433,14 +422,6 @@ def test_empty_frames_do_not_reset_labels(monkeypatch, tmp_path: Path):
         channels_meta=["DAPI_0"],
         overwrite=False,
         axes_names=axes,
-    )
-
-    import cellpose.models
-
-    monkeypatch.setattr(
-        cellpose.models,
-        "CellposeModel",
-        MockCellposeModelWithEmptyFrames,
     )
 
     channel = CellposeChannels(mode="label", identifiers=["DAPI_0"])
@@ -467,7 +448,8 @@ def test_empty_frames_do_not_reset_labels(monkeypatch, tmp_path: Path):
     )
 
 
-def test_skip_if_missing_with_valid_channel(monkeypatch, tmp_path: Path):
+@pytest.mark.cellpose_mock
+def test_skip_if_missing_with_valid_channel(tmp_path: Path):
     """When skip_if_missing=True and the channel exists, the task runs normally."""
     test_data_path = tmp_path / "data.zarr"
     ome_zarr = create_synthetic_ome_zarr(
@@ -477,10 +459,6 @@ def test_skip_if_missing_with_valid_channel(monkeypatch, tmp_path: Path):
         overwrite=False,
         axes_names="yx",
     )
-
-    import cellpose.models
-
-    monkeypatch.setattr(cellpose.models, "CellposeModel", MockCellposeModel)
 
     channel = CellposeChannels(
         mode="label", identifiers=["DAPI_0"], skip_if_missing=True
@@ -495,7 +473,8 @@ def test_skip_if_missing_with_valid_channel(monkeypatch, tmp_path: Path):
     assert "DAPI_0_segmented" in ome_zarr.list_labels()
 
 
-def test_skip_if_missing_with_invalid_channel(monkeypatch, tmp_path: Path):
+@pytest.mark.cellpose_mock
+def test_skip_if_missing_with_invalid_channel(tmp_path: Path):
     """When skip_if_missing=True and the channel is absent, the task skips silently."""
     test_data_path = tmp_path / "data.zarr"
     ome_zarr = create_synthetic_ome_zarr(
@@ -505,10 +484,6 @@ def test_skip_if_missing_with_invalid_channel(monkeypatch, tmp_path: Path):
         overwrite=False,
         axes_names="yx",
     )
-
-    import cellpose.models
-
-    monkeypatch.setattr(cellpose.models, "CellposeModel", MockCellposeModel)
 
     # Request a channel that does not exist in the image
     channel = CellposeChannels(
@@ -525,7 +500,8 @@ def test_skip_if_missing_with_invalid_channel(monkeypatch, tmp_path: Path):
     assert "GFP_0_segmented" not in ome_zarr.list_labels()
 
 
-def test_raise_if_missing_with_invalid_channel(monkeypatch, tmp_path: Path):
+@pytest.mark.cellpose_mock
+def test_raise_if_missing_with_invalid_channel(tmp_path: Path):
     """When skip_if_missing=False and channel is absent, a ValueError is raised."""
     test_data_path = tmp_path / "data.zarr"
     create_synthetic_ome_zarr(
@@ -535,10 +511,6 @@ def test_raise_if_missing_with_invalid_channel(monkeypatch, tmp_path: Path):
         overwrite=False,
         axes_names="yx",
     )
-
-    import cellpose.models
-
-    monkeypatch.setattr(cellpose.models, "CellposeModel", MockCellposeModel)
 
     # skip_if_missing defaults to False
     channel = CellposeChannels(mode="label", identifiers=["GFP_0"])
