@@ -111,8 +111,7 @@ def check_label_quality(
     ome_zarr: OmeZarrContainer, label_name: str, gt_name: str = "nuclei"
 ):
     if ome_zarr.is_3d:
-        # Synthetic data is 2D only
-        # we run 3D tests to check the API but cannot check label quality
+        # Only implemented for 2D images
         return
     prediction = ome_zarr.get_label(label_name).get_as_numpy(axes_order="tzyx", t=0)
     ground_truth = ome_zarr.get_label(gt_name).get_as_numpy(axes_order="tzyx", t=0)
@@ -155,7 +154,7 @@ def test_mock_rejects_arguments_unknown_to_cellpose(mock_cls):
 def test_cellpose_sam_segmentation_task(
     tmp_path: Path, shape: tuple[int, ...], axes: str
 ):
-    """Base test for the cellpose segmentation task."""
+    """Run the task on all axes combinations, with pre/post-processing."""
     test_data_path = tmp_path / "data.zarr"
 
     if "c" in axes:
@@ -209,7 +208,7 @@ def test_cellpose_sam_segmentation_task(
 def test_cellpose_sam_segmentation_task_masked(
     tmp_path: Path, shape: tuple[int, ...], axes: str
 ):
-    """Test the cellpose segmentation task with a masking configuration."""
+    """Run the task on all axes combinations, masked by the `nuclei_mask` label."""
     test_data_path = tmp_path / "data.zarr"
 
     if "c" in axes:
@@ -249,8 +248,8 @@ def test_cellpose_sam_segmentation_task_masked(
 
 
 @pytest.mark.real_model
-def test_cellpose_sam_segmentation_task_no_mock(uses_real_model, tmp_path: Path):
-    """Base test for the cellpose segmentation task without mocking."""
+def test_label_quality(uses_real_model, tmp_path: Path):
+    """Check labels against the synthetic ground truth (real model only)."""
     test_data_path = tmp_path / "data.zarr"
     shape = (1, 64, 64)
     axes = "cyx"
@@ -276,8 +275,8 @@ def test_cellpose_sam_segmentation_task_no_mock(uses_real_model, tmp_path: Path)
         check_label_quality(ome_zarr, "DAPI_0_segmented")
 
 
-def test_roi_table_cropping_cellpose_sam_segmentation_task_no_mock(tmp_path: Path):
-    """Base test for the cellpose segmentation task without mocking."""
+def test_segmentation_restricted_to_roi(tmp_path: Path):
+    """With a ROI table, labels are only written inside the ROI."""
     test_data_path = tmp_path / "data.zarr"
     shape = (2, 2, 64, 64)
     axes = "tcyx"
@@ -321,8 +320,8 @@ def test_roi_table_cropping_cellpose_sam_segmentation_task_no_mock(tmp_path: Pat
 
 
 @pytest.mark.real_model
-def test_custom_norm_no_mock(uses_real_model, tmp_path: Path):
-    """Base test for the cellpose segmentation task without mocking."""
+def test_custom_normalization(uses_real_model, tmp_path: Path):
+    """Run the task with `CustomNorm` normalization."""
     test_data_path = tmp_path / "data.zarr"
     shape = (1, 64, 64)
     axes = "cyx"
@@ -352,10 +351,8 @@ def test_custom_norm_no_mock(uses_real_model, tmp_path: Path):
         check_label_quality(ome_zarr, "DAPI_0_segmented")
 
 
-def test_cellpose_sam_segmentation_with_masking_roi_table(
-    uses_real_model, tmp_path: Path
-):
-    """Base test for the cellpose segmentation task without mocking."""
+def test_masking_roi_table_creation(uses_real_model, tmp_path: Path):
+    """The masking ROI table is created or skipped as configured."""
     test_data_path = tmp_path / "data.zarr"
     shape = (1, 64, 64)
     axes = "cyx"
