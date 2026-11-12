@@ -105,6 +105,13 @@ docstring-code-format = true
 docstring-code-line-length = 89
 skip-magic-trailing-comma = false # default is false
 
+# https://docs.pytest.org/en/stable/reference/customize.html
+[tool.pytest.ini_options]
+addopts = "--strict-markers"
+markers = [
+    "real_model: representative tests to run against the real Cellpose model (select with `-m real_model`, without `--fast`)",
+]
+
 [tool.pixi.workspace]
 channels = ["conda-forge"]
 platforms = ["osx-arm64", "linux-64"]
@@ -130,6 +137,8 @@ create-manifest = { cmd = [
 ] }
 
 test = { cmd = ["pytest", "./tests/"] }
+test-fast = { cmd = ["pytest", "./tests/", "--fast"] }
+test-real-model = { cmd = ["pytest", "./tests/", "-m", "real_model"] }
 
 init-tasks = [
     { task = "install-pre-commit", environment = "dev" },

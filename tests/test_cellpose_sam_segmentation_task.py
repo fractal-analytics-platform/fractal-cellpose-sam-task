@@ -121,7 +121,7 @@ def test_mock_rejects_arguments_unknown_to_cellpose(mock_cls):
     ],
 )
 def test_cellpose_sam_segmentation_task(
-    monkeypatch, is_github_or_fast, tmp_path: Path, shape: tuple[int, ...], axes: str
+    monkeypatch, is_fast, tmp_path: Path, shape: tuple[int, ...], axes: str
 ):
     """Base test for the cellpose segmentation task."""
     test_data_path = tmp_path / "data.zarr"
@@ -142,8 +142,8 @@ def test_cellpose_sam_segmentation_task(
 
     channel = CellposeChannels(mode="label", identifiers=["DAPI_0"])
 
-    if is_github_or_fast:
-        # Mock Cellpose model in GitHub Actions to avoid downloading the model
+    if is_fast:
+        # Mock Cellpose model in fast mode to avoid downloading the model
         import cellpose.models
 
         monkeypatch.setattr(
@@ -185,7 +185,7 @@ def test_cellpose_sam_segmentation_task(
     ],
 )
 def test_cellpose_sam_segmentation_task_masked(
-    monkeypatch, is_github_or_fast, tmp_path: Path, shape: tuple[int, ...], axes: str
+    monkeypatch, is_fast, tmp_path: Path, shape: tuple[int, ...], axes: str
 ):
     """Test the cellpose segmentation task with a masking configuration."""
     test_data_path = tmp_path / "data.zarr"
@@ -215,8 +215,8 @@ def test_cellpose_sam_segmentation_task_masked(
         roi_table=None,
     )
 
-    if is_github_or_fast:
-        # Mock Cellpose model in GitHub Actions to avoid downloading the model
+    if is_fast:
+        # Mock Cellpose model in fast mode to avoid downloading the model
         import cellpose.models
 
         monkeypatch.setattr(
@@ -234,13 +234,12 @@ def test_cellpose_sam_segmentation_task_masked(
 
     # Check that the label image was created
     assert "DAPI_0_segmented" in ome_zarr.list_labels()
-    if is_github_or_fast:
+    if is_fast:
         return
 
 
-def test_cellpose_sam_segmentation_task_no_mock(
-    monkeypatch, is_github_or_fast, tmp_path: Path
-):
+@pytest.mark.real_model
+def test_cellpose_sam_segmentation_task_no_mock(monkeypatch, is_fast, tmp_path: Path):
     """Base test for the cellpose segmentation task without mocking."""
     test_data_path = tmp_path / "data.zarr"
     shape = (1, 64, 64)
@@ -257,7 +256,7 @@ def test_cellpose_sam_segmentation_task_no_mock(
 
     channel = CellposeChannels(mode="label", identifiers=["DAPI_0"])
 
-    if is_github_or_fast:
+    if is_fast:
         import cellpose.models
 
         monkeypatch.setattr(cellpose.models, "CellposeModel", MockCellposeModel)
@@ -268,12 +267,12 @@ def test_cellpose_sam_segmentation_task_no_mock(
 
     # Check that the label image was created
     assert "DAPI_0_segmented" in ome_zarr.list_labels()
-    if not is_github_or_fast:
+    if not is_fast:
         check_label_quality(ome_zarr, "DAPI_0_segmented")
 
 
 def test_roi_table_cropping_cellpose_sam_segmentation_task_no_mock(
-    monkeypatch, is_github_or_fast, tmp_path: Path
+    monkeypatch, is_fast, tmp_path: Path
 ):
     """Base test for the cellpose segmentation task without mocking."""
     test_data_path = tmp_path / "data.zarr"
@@ -291,7 +290,7 @@ def test_roi_table_cropping_cellpose_sam_segmentation_task_no_mock(
 
     channel = CellposeChannels(mode="label", identifiers=["DAPI_0"])
 
-    if is_github_or_fast:
+    if is_fast:
         import cellpose.models
 
         monkeypatch.setattr(cellpose.models, "CellposeModel", MockCellposeModel)
@@ -323,7 +322,8 @@ def test_roi_table_cropping_cellpose_sam_segmentation_task_no_mock(
     assert np.any(label_data[0, :, :] > 0), "Cropped region should have some labels"
 
 
-def test_custom_norm_no_mock(monkeypatch, is_github_or_fast, tmp_path: Path):
+@pytest.mark.real_model
+def test_custom_norm_no_mock(monkeypatch, is_fast, tmp_path: Path):
     """Base test for the cellpose segmentation task without mocking."""
     test_data_path = tmp_path / "data.zarr"
     shape = (1, 64, 64)
@@ -340,7 +340,7 @@ def test_custom_norm_no_mock(monkeypatch, is_github_or_fast, tmp_path: Path):
 
     channel = CellposeChannels(mode="label", identifiers=["DAPI_0"])
 
-    if is_github_or_fast:
+    if is_fast:
         import cellpose.models
 
         monkeypatch.setattr(cellpose.models, "CellposeModel", MockCellposeModel)
@@ -355,12 +355,12 @@ def test_custom_norm_no_mock(monkeypatch, is_github_or_fast, tmp_path: Path):
 
     # Check that the label image was created
     assert "DAPI_0_segmented" in ome_zarr.list_labels()
-    if not is_github_or_fast:
+    if not is_fast:
         check_label_quality(ome_zarr, "DAPI_0_segmented")
 
 
 def test_cellpose_sam_segmentation_with_masking_roi_table(
-    monkeypatch, is_github_or_fast, tmp_path: Path
+    monkeypatch, is_fast, tmp_path: Path
 ):
     """Base test for the cellpose segmentation task without mocking."""
     test_data_path = tmp_path / "data.zarr"
@@ -378,7 +378,7 @@ def test_cellpose_sam_segmentation_with_masking_roi_table(
 
     channel = CellposeChannels(mode="label", identifiers=["DAPI_0"])
 
-    if is_github_or_fast:
+    if is_fast:
         import cellpose.models
 
         monkeypatch.setattr(cellpose.models, "CellposeModel", MockCellposeModel)
@@ -405,7 +405,7 @@ def test_cellpose_sam_segmentation_with_masking_roi_table(
     assert f"{label_name}_masking_ROI_table" in ome_zarr.list_tables()
     table = ome_zarr.get_table(f"{label_name}_masking_ROI_table")
     assert isinstance(table, MaskingRoiTable)
-    if not is_github_or_fast:
+    if not is_fast:
         assert len(table.rois()) == 5
         roi = table.rois()[0]
         assert roi.name == "1"
