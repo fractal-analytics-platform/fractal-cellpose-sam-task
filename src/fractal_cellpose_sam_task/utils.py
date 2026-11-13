@@ -175,7 +175,10 @@ class AdvancedCellposeParameters(BaseModel):
     boundaries).
     """
     invert: bool = False
-    """Invert image pixel intensity before running network."""
+    """
+    Invert image pixel intensity before running network. Only used with DefaultNorm:
+    with CustomNorm, use its own `invert` instead; with NoNorm, no inversion happens.
+    """
     diameter: float | None = None
     """Diameter used to rescale the image to 30 pix cell diameter."""
     flow_threshold: float = 0.4
@@ -232,10 +235,13 @@ class AdvancedCellposeParameters(BaseModel):
         Returns:
             dict: Dictionary of keyword arguments for cellpose.eval.
         """
+        normalize = self.normalization.to_eval_kwargs()
+        if not isinstance(self.normalization, CustomNorm):
+            # Cellpose >=4.2 only accepts `invert` inside the `normalize` dict
+            normalize = {"normalize": normalize, "invert": self.invert}
         kwargs = {
             "batch_size": self.batch_size,
             "resample": self.resample,
-            "invert": self.invert,
             "diameter": self.diameter,
             "flow_threshold": self.flow_threshold,
             "cellprob_threshold": self.cellprob_threshold,
@@ -249,7 +255,7 @@ class AdvancedCellposeParameters(BaseModel):
             "augment": self.augment,
             "tile_overlap": self.tile_overlap,
             "bsize": self.bsize,
-            "normalize": self.normalization.to_eval_kwargs(),
+            "normalize": normalize,
         }
         return kwargs
 

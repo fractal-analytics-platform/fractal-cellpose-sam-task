@@ -66,7 +66,7 @@
               },
               "invert": {
                 "default": false,
-                "description": "Invert image pixel intensity before running network.",
+                "description": "Invert image pixel intensity before running network. Only used with DefaultNorm:\nwith CustomNorm, use its own `invert` instead; with NoNorm, no inversion happens.",
                 "title": "Invert",
                 "type": "boolean"
               },
