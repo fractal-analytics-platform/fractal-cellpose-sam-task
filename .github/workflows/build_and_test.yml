@@ -33,16 +33,6 @@ jobs:
           python-version: ${{  matrix.python-version }}
           cache: "pip"
 
-      - name: Cache Cellpose models
-        uses: actions/cache@v4
-        with:
-          path: ~/.cellpose
-          # The key uses the OS name and a hash of pyproject.toml
-          # Ideally we would also include the Cellpose version, but this will do
-          key: cellpose-${{ hashFiles('**/pyproject.toml') }}
-          restore-keys: |
-            cellpose-
-
       - name: Install PyTorch CPU (Linux)
         if: runner.os == 'Linux'
         run: python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
@@ -53,12 +43,44 @@ jobs:
       - name: Check if manifest has changed
         run: fractal-manifest check --package fractal_cellpose_sam_task
 
-      - name: Test core library with pytest
-        run: python -m pytest tests
+      - name: Test core library with pytest (mocked Cellpose model)
+        run: python -m pytest tests --fast
+
+  real-model:
+    name: "Real Cellpose model, Python 3.13, ubuntu-latest"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: "pip"
+
+      - name: Cache Cellpose models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cellpose/models
+          key: cellpose-models-cpsam
+
+      - name: Install PyTorch CPU
+        run: python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install package
+        run: python -m pip install -e .[test]
+
+      - name: Test with the real Cellpose model
+        run: python -m pytest tests -m real_model
 
   deploy:
     name: Deploy
-    needs: tests
+    needs: [tests, real-model]
     if: success() && startsWith(github.ref, 'refs/tags/') && github.event_name != 'schedule'
     runs-on: ubuntu-latest
 

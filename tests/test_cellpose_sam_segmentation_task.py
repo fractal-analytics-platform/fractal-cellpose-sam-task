@@ -1,5 +1,7 @@
+import inspect
 from pathlib import Path
 
+import cellpose.models
 import numpy as np
 import pytest
 from fractal_tasks_utils.segmentation import IteratorConfig, MaskingConfig
@@ -12,6 +14,7 @@ from ngio import OmeZarrContainer, Roi, create_synthetic_ome_zarr
 from ngio.tables import MaskingRoiTable, RoiTable
 from skimage.metrics import adapted_rand_error
 
+import fractal_cellpose_sam_task.cellpose_sam_segmentation_task as task_module
 from fractal_cellpose_sam_task.cellpose_sam_segmentation_task import (
     cellpose_sam_segmentation_task,
 )
@@ -23,23 +26,46 @@ from fractal_cellpose_sam_task.utils import (
     SkipCreateMaskingRoiTable,
 )
 
+# Keep a reference to the real class before any test monkeypatches it, so that
+# the mocks can validate their call arguments against the installed Cellpose API.
+_RealCellposeModel = cellpose.models.CellposeModel
+_REAL_INIT_SIGNATURE = inspect.signature(_RealCellposeModel.__init__)
+_REAL_EVAL_SIGNATURE = inspect.signature(_RealCellposeModel.eval)
 
-class MockCellposeModel:
+
+class _SignatureCheckedCellposeModel:
+    """Base mock that rejects arguments the real CellposeModel would not accept.
+
+    Calls are bound against the signatures of the installed
+    `cellpose.models.CellposeModel`, so renamed or removed arguments raise
+    `TypeError` exactly as they would with the real model.
+    """
+
     def __init__(self, *args, **kwargs):
-        pass
+        _REAL_INIT_SIGNATURE.bind(self, *args, **kwargs)
 
     def eval(self, image, **kwargs):
+        _REAL_EVAL_SIGNATURE.bind(self, image, **kwargs)
+        return self._predict(image)
+
+    def _predict(self, image):
+        raise NotImplementedError
+
+
+class MockCellposeModel(_SignatureCheckedCellposeModel):
+    def _predict(self, image):
         masks = np.ones(image.shape[1:], dtype=np.uint32)
         return masks, None, None
 
 
-class MockCellposeModelWithEmptyFrames:
+class MockCellposeModelWithEmptyFrames(_SignatureCheckedCellposeModel):
     """Mock that returns empty masks on every other call to simulate empty frames."""
 
     def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._call_count = 0
 
-    def eval(self, image, **kwargs):
+    def _predict(self, image):
         self._call_count += 1
         if self._call_count % 2 == 0:
             # Return empty mask for even calls
@@ -50,17 +76,64 @@ class MockCellposeModelWithEmptyFrames:
         return masks, None, None
 
 
+@pytest.fixture(autouse=True)
+def uses_real_model(request, monkeypatch) -> bool:
+    """Replace the Cellpose model with a mock, unless the real model should run.
+
+    The real model runs unless `--fast` is given or the test is marked
+    `@pytest.mark.cellpose_mock`. Tests with that marker are always mocked, using
+    the `mock_cls` keyword argument of the marker (default: `MockCellposeModel`).
+    The patch is undone by `monkeypatch` at the end of each test.
+
+    Returns:
+        True if the test runs against the real Cellpose model.
+    """
+    mock_marker = request.node.get_closest_marker("cellpose_mock")
+    if mock_marker is not None and request.node.get_closest_marker("real_model"):
+        pytest.fail(
+            "A test cannot be marked both `real_model` and `cellpose_mock`",
+            pytrace=False,
+        )
+    if mock_marker is None and not request.config.getoption("--fast"):
+        return True
+
+    mock_cls = MockCellposeModel
+    if mock_marker is not None:
+        mock_cls = mock_marker.kwargs.get("mock_cls", MockCellposeModel)
+    monkeypatch.setattr(cellpose.models, "CellposeModel", mock_cls)
+    # The task resolves `models.CellposeModel` at call time; fail loudly if it
+    # ever stops doing so (e.g. `from cellpose.models import CellposeModel`).
+    assert task_module.models.CellposeModel is mock_cls
+    return False
+
+
 def check_label_quality(
     ome_zarr: OmeZarrContainer, label_name: str, gt_name: str = "nuclei"
 ):
     if ome_zarr.is_3d:
-        # Synthetic data is 2D only
-        # we run 3D tests to check the API but cannot check label quality
+        # Only implemented for 2D images
         return
     prediction = ome_zarr.get_label(label_name).get_as_numpy(axes_order="tzyx", t=0)
     ground_truth = ome_zarr.get_label(gt_name).get_as_numpy(axes_order="tzyx", t=0)
     are, _, _ = adapted_rand_error(ground_truth, prediction)
     assert are < 0.1, f"Adapted Rand Error too high: {are}>0.1. Labels might be wrong."
+
+
+@pytest.mark.parametrize(
+    "mock_cls", [MockCellposeModel, MockCellposeModelWithEmptyFrames]
+)
+def test_mock_rejects_arguments_unknown_to_cellpose(mock_cls):
+    """The mocks must fail like the real model on arguments Cellpose doesn't accept."""
+    with pytest.raises(TypeError):
+        mock_cls(not_a_cellpose_argument=True)
+
+    model = mock_cls(gpu=False, pretrained_model="cpsam")
+    image = np.zeros((1, 8, 8), dtype=np.float32)
+    with pytest.raises(TypeError):
+        model.eval(image, not_a_cellpose_argument=True)
+
+    masks, _, _ = model.eval(image, channel_axis=0)
+    assert masks.shape == (8, 8)
 
 
 @pytest.mark.parametrize(
@@ -79,9 +152,9 @@ def check_label_quality(
     ],
 )
 def test_cellpose_sam_segmentation_task(
-    monkeypatch, is_github_or_fast, tmp_path: Path, shape: tuple[int, ...], axes: str
+    tmp_path: Path, shape: tuple[int, ...], axes: str
 ):
-    """Base test for the cellpose segmentation task."""
+    """Run the task on all axes combinations, with pre/post-processing."""
     test_data_path = tmp_path / "data.zarr"
 
     if "c" in axes:
@@ -99,16 +172,6 @@ def test_cellpose_sam_segmentation_task(
     )
 
     channel = CellposeChannels(mode="label", identifiers=["DAPI_0"])
-
-    if is_github_or_fast:
-        # Mock Cellpose model in GitHub Actions to avoid downloading the model
-        import cellpose.models
-
-        monkeypatch.setattr(
-            cellpose.models,
-            "CellposeModel",
-            MockCellposeModel,
-        )
 
     pre_post = SegmentationTransformConfig(
         pre_process=[
@@ -143,9 +206,9 @@ def test_cellpose_sam_segmentation_task(
     ],
 )
 def test_cellpose_sam_segmentation_task_masked(
-    monkeypatch, is_github_or_fast, tmp_path: Path, shape: tuple[int, ...], axes: str
+    tmp_path: Path, shape: tuple[int, ...], axes: str
 ):
-    """Test the cellpose segmentation task with a masking configuration."""
+    """Run the task on all axes combinations, masked by the `nuclei_mask` label."""
     test_data_path = tmp_path / "data.zarr"
 
     if "c" in axes:
@@ -173,16 +236,6 @@ def test_cellpose_sam_segmentation_task_masked(
         roi_table=None,
     )
 
-    if is_github_or_fast:
-        # Mock Cellpose model in GitHub Actions to avoid downloading the model
-        import cellpose.models
-
-        monkeypatch.setattr(
-            cellpose.models,
-            "CellposeModel",
-            MockCellposeModel,
-        )
-
     cellpose_sam_segmentation_task(
         zarr_url=str(test_data_path),
         channels=channel,
@@ -192,14 +245,11 @@ def test_cellpose_sam_segmentation_task_masked(
 
     # Check that the label image was created
     assert "DAPI_0_segmented" in ome_zarr.list_labels()
-    if is_github_or_fast:
-        return
 
 
-def test_cellpose_sam_segmentation_task_no_mock(
-    monkeypatch, is_github_or_fast, tmp_path: Path
-):
-    """Base test for the cellpose segmentation task without mocking."""
+@pytest.mark.real_model
+def test_label_quality(uses_real_model, tmp_path: Path):
+    """Check labels against the synthetic ground truth (real model only)."""
     test_data_path = tmp_path / "data.zarr"
     shape = (1, 64, 64)
     axes = "cyx"
@@ -215,25 +265,18 @@ def test_cellpose_sam_segmentation_task_no_mock(
 
     channel = CellposeChannels(mode="label", identifiers=["DAPI_0"])
 
-    if is_github_or_fast:
-        import cellpose.models
-
-        monkeypatch.setattr(cellpose.models, "CellposeModel", MockCellposeModel)
-
     cellpose_sam_segmentation_task(
         zarr_url=str(test_data_path), channels=channel, overwrite=False
     )
 
     # Check that the label image was created
     assert "DAPI_0_segmented" in ome_zarr.list_labels()
-    if not is_github_or_fast:
+    if uses_real_model:
         check_label_quality(ome_zarr, "DAPI_0_segmented")
 
 
-def test_roi_table_cropping_cellpose_sam_segmentation_task_no_mock(
-    monkeypatch, is_github_or_fast, tmp_path: Path
-):
-    """Base test for the cellpose segmentation task without mocking."""
+def test_segmentation_restricted_to_roi(tmp_path: Path):
+    """With a ROI table, labels are only written inside the ROI."""
     test_data_path = tmp_path / "data.zarr"
     shape = (2, 2, 64, 64)
     axes = "tcyx"
@@ -248,11 +291,6 @@ def test_roi_table_cropping_cellpose_sam_segmentation_task_no_mock(
     )
 
     channel = CellposeChannels(mode="label", identifiers=["DAPI_0"])
-
-    if is_github_or_fast:
-        import cellpose.models
-
-        monkeypatch.setattr(cellpose.models, "CellposeModel", MockCellposeModel)
 
     cellpose_sam_segmentation_task(
         zarr_url=str(test_data_path), channels=channel, overwrite=False
@@ -281,8 +319,9 @@ def test_roi_table_cropping_cellpose_sam_segmentation_task_no_mock(
     assert np.any(label_data[0, :, :] > 0), "Cropped region should have some labels"
 
 
-def test_custom_norm_no_mock(monkeypatch, is_github_or_fast, tmp_path: Path):
-    """Base test for the cellpose segmentation task without mocking."""
+@pytest.mark.real_model
+def test_custom_normalization(uses_real_model, tmp_path: Path):
+    """Run the task with `CustomNorm` normalization."""
     test_data_path = tmp_path / "data.zarr"
     shape = (1, 64, 64)
     axes = "cyx"
@@ -297,11 +336,6 @@ def test_custom_norm_no_mock(monkeypatch, is_github_or_fast, tmp_path: Path):
     )
 
     channel = CellposeChannels(mode="label", identifiers=["DAPI_0"])
-
-    if is_github_or_fast:
-        import cellpose.models
-
-        monkeypatch.setattr(cellpose.models, "CellposeModel", MockCellposeModel)
 
     advanced_params = AdvancedCellposeParameters(normalization=CustomNorm())
     cellpose_sam_segmentation_task(
@@ -313,14 +347,12 @@ def test_custom_norm_no_mock(monkeypatch, is_github_or_fast, tmp_path: Path):
 
     # Check that the label image was created
     assert "DAPI_0_segmented" in ome_zarr.list_labels()
-    if not is_github_or_fast:
+    if uses_real_model:
         check_label_quality(ome_zarr, "DAPI_0_segmented")
 
 
-def test_cellpose_sam_segmentation_with_masking_roi_table(
-    monkeypatch, is_github_or_fast, tmp_path: Path
-):
-    """Base test for the cellpose segmentation task without mocking."""
+def test_masking_roi_table_creation(uses_real_model, tmp_path: Path):
+    """The masking ROI table is created or skipped as configured."""
     test_data_path = tmp_path / "data.zarr"
     shape = (1, 64, 64)
     axes = "cyx"
@@ -335,11 +367,6 @@ def test_cellpose_sam_segmentation_with_masking_roi_table(
     )
 
     channel = CellposeChannels(mode="label", identifiers=["DAPI_0"])
-
-    if is_github_or_fast:
-        import cellpose.models
-
-        monkeypatch.setattr(cellpose.models, "CellposeModel", MockCellposeModel)
 
     label_name = "custom_label_name"
     cellpose_sam_segmentation_task(
@@ -363,7 +390,7 @@ def test_cellpose_sam_segmentation_with_masking_roi_table(
     assert f"{label_name}_masking_ROI_table" in ome_zarr.list_tables()
     table = ome_zarr.get_table(f"{label_name}_masking_ROI_table")
     assert isinstance(table, MaskingRoiTable)
-    if not is_github_or_fast:
+    if uses_real_model:
         assert len(table.rois()) == 5
         roi = table.rois()[0]
         assert roi.name == "1"
@@ -378,7 +405,8 @@ def test_cellpose_sam_segmentation_with_masking_roi_table(
         assert len(table.rois()) >= 1
 
 
-def test_empty_frames_do_not_reset_labels(monkeypatch, tmp_path: Path):
+@pytest.mark.cellpose_mock(mock_cls=MockCellposeModelWithEmptyFrames)
+def test_empty_frames_do_not_reset_labels(tmp_path: Path):
     """Test that empty frames don't cause label counter to reset (issue #16)."""
     test_data_path = tmp_path / "data.zarr"
     # 3 time points, no channel dimension
@@ -391,14 +419,6 @@ def test_empty_frames_do_not_reset_labels(monkeypatch, tmp_path: Path):
         channels_meta=["DAPI_0"],
         overwrite=False,
         axes_names=axes,
-    )
-
-    import cellpose.models
-
-    monkeypatch.setattr(
-        cellpose.models,
-        "CellposeModel",
-        MockCellposeModelWithEmptyFrames,
     )
 
     channel = CellposeChannels(mode="label", identifiers=["DAPI_0"])
@@ -425,7 +445,8 @@ def test_empty_frames_do_not_reset_labels(monkeypatch, tmp_path: Path):
     )
 
 
-def test_skip_if_missing_with_valid_channel(monkeypatch, tmp_path: Path):
+@pytest.mark.cellpose_mock
+def test_skip_if_missing_with_valid_channel(tmp_path: Path):
     """When skip_if_missing=True and the channel exists, the task runs normally."""
     test_data_path = tmp_path / "data.zarr"
     ome_zarr = create_synthetic_ome_zarr(
@@ -435,10 +456,6 @@ def test_skip_if_missing_with_valid_channel(monkeypatch, tmp_path: Path):
         overwrite=False,
         axes_names="yx",
     )
-
-    import cellpose.models
-
-    monkeypatch.setattr(cellpose.models, "CellposeModel", MockCellposeModel)
 
     channel = CellposeChannels(
         mode="label", identifiers=["DAPI_0"], skip_if_missing=True
@@ -453,7 +470,8 @@ def test_skip_if_missing_with_valid_channel(monkeypatch, tmp_path: Path):
     assert "DAPI_0_segmented" in ome_zarr.list_labels()
 
 
-def test_skip_if_missing_with_invalid_channel(monkeypatch, tmp_path: Path):
+@pytest.mark.cellpose_mock
+def test_skip_if_missing_with_invalid_channel(tmp_path: Path):
     """When skip_if_missing=True and the channel is absent, the task skips silently."""
     test_data_path = tmp_path / "data.zarr"
     ome_zarr = create_synthetic_ome_zarr(
@@ -463,10 +481,6 @@ def test_skip_if_missing_with_invalid_channel(monkeypatch, tmp_path: Path):
         overwrite=False,
         axes_names="yx",
     )
-
-    import cellpose.models
-
-    monkeypatch.setattr(cellpose.models, "CellposeModel", MockCellposeModel)
 
     # Request a channel that does not exist in the image
     channel = CellposeChannels(
@@ -483,7 +497,8 @@ def test_skip_if_missing_with_invalid_channel(monkeypatch, tmp_path: Path):
     assert "GFP_0_segmented" not in ome_zarr.list_labels()
 
 
-def test_raise_if_missing_with_invalid_channel(monkeypatch, tmp_path: Path):
+@pytest.mark.cellpose_mock
+def test_raise_if_missing_with_invalid_channel(tmp_path: Path):
     """When skip_if_missing=False and channel is absent, a ValueError is raised."""
     test_data_path = tmp_path / "data.zarr"
     create_synthetic_ome_zarr(
@@ -493,10 +508,6 @@ def test_raise_if_missing_with_invalid_channel(monkeypatch, tmp_path: Path):
         overwrite=False,
         axes_names="yx",
     )
-
-    import cellpose.models
-
-    monkeypatch.setattr(cellpose.models, "CellposeModel", MockCellposeModel)
 
     # skip_if_missing defaults to False
     channel = CellposeChannels(mode="label", identifiers=["GFP_0"])
