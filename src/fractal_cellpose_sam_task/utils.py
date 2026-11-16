@@ -114,6 +114,35 @@ class CustomNorm(BaseModel):
 AnyNormModel = Annotated[DefaultNorm | NoNorm | CustomNorm, Field(discriminator="mode")]
 
 
+class CpsamModel(BaseModel):
+    """Pretrained Cellpose-SAM model."""
+
+    mode: Literal["cpsam"] = "cpsam"
+    """Use a pretrained Cellpose-SAM model."""
+    name: Literal["cpsam", "cpsam_v2"] = "cpsam"
+    """Name of the pretrained model."""
+
+    def to_init_kwargs(self) -> dict:
+        """Keyword arguments for cellpose.models.CellposeModel."""
+        return {"pretrained_model": self.name}
+
+
+class CustomModel(BaseModel):
+    """Custom Cellpose model."""
+
+    mode: Literal["custom"] = "custom"
+    """Use a custom Cellpose model."""
+    path: str
+    """Path to the model weights."""
+
+    def to_init_kwargs(self) -> dict:
+        """Keyword arguments for cellpose.models.CellposeModel."""
+        return {"pretrained_model": self.path}
+
+
+AnyCellposeModel = Annotated[CpsamModel | CustomModel, Field(discriminator="mode")]
+
+
 class CreateMaskingRoiTable(BaseModel):
     """Create Masking ROI Table Configuration."""
 
@@ -224,8 +253,6 @@ class AdvancedCellposeParameters(BaseModel):
     """Tiles image with overlapping tiles and flips overlapped regions to augment."""
     tile_overlap: float = 0.1
     """Fraction of overlap of tiles when computing flows."""
-    bsize: int = 256
-    """Block size for tiles, recommended to keep at 224, like in training."""
     verbose: bool = False
     """Whether cellpose logs should be active."""
 
@@ -254,7 +281,6 @@ class AdvancedCellposeParameters(BaseModel):
             "niter": self.niter,
             "augment": self.augment,
             "tile_overlap": self.tile_overlap,
-            "bsize": self.bsize,
             "normalize": normalize,
         }
         return kwargs

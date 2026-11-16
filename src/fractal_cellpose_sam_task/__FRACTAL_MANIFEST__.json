@@ -163,12 +163,6 @@
                 "title": "Tile Overlap",
                 "type": "number"
               },
-              "bsize": {
-                "default": 256,
-                "description": "Block size for tiles, recommended to keep at 224, like in training.",
-                "title": "Bsize",
-                "type": "integer"
-              },
               "verbose": {
                 "default": false,
                 "description": "Whether cellpose logs should be active.",
@@ -216,6 +210,30 @@
             "title": "CellposeChannels",
             "type": "object"
           },
+          "CpsamModel": {
+            "description": "Pretrained Cellpose-SAM model.",
+            "properties": {
+              "mode": {
+                "const": "cpsam",
+                "default": "cpsam",
+                "description": "Use a pretrained Cellpose-SAM model.",
+                "title": "Mode",
+                "type": "string"
+              },
+              "name": {
+                "default": "cpsam",
+                "description": "Name of the pretrained model.",
+                "enum": [
+                  "cpsam",
+                  "cpsam_v2"
+                ],
+                "title": "Name",
+                "type": "string"
+              }
+            },
+            "title": "CpsamModel",
+            "type": "object"
+          },
           "CreateMaskingRoiTable": {
             "description": "Create Masking ROI Table Configuration.",
             "properties": {
@@ -246,6 +264,28 @@
               }
             },
             "title": "CreateMaskingRoiTable",
+            "type": "object"
+          },
+          "CustomModel": {
+            "description": "Custom Cellpose model.",
+            "properties": {
+              "mode": {
+                "const": "custom",
+                "default": "custom",
+                "description": "Use a custom Cellpose model.",
+                "title": "Mode",
+                "type": "string"
+              },
+              "path": {
+                "description": "Path to the model weights.",
+                "title": "Path",
+                "type": "string"
+              }
+            },
+            "required": [
+              "path"
+            ],
+            "title": "CustomModel",
             "type": "object"
           },
           "CustomNorm": {
@@ -727,18 +767,28 @@
             "title": "Iterator Configuration",
             "description": "Configuration for the segmentation iterator. This can be used to specify masking and/or a ROI table."
           },
-          "custom_model": {
-            "anyOf": [
+          "model": {
+            "default": {
+              "mode": "cpsam",
+              "name": "cpsam"
+            },
+            "discriminator": {
+              "mapping": {
+                "cpsam": "#/$defs/CpsamModel",
+                "custom": "#/$defs/CustomModel"
+              },
+              "propertyName": "mode"
+            },
+            "oneOf": [
               {
-                "type": "string"
+                "$ref": "#/$defs/CpsamModel"
               },
               {
-                "type": "null"
+                "$ref": "#/$defs/CustomModel"
               }
             ],
-            "default": null,
-            "title": "Custom Model",
-            "description": "Path to a custom Cellpose model. If not set, the default \"cpsam\" model will be used."
+            "title": "Model",
+            "description": "Cellpose model to use: a pretrained Cellpose-SAM model, or a custom model."
           },
           "advanced_parameters": {
             "$ref": "#/$defs/AdvancedCellposeParameters",
@@ -761,7 +811,6 @@
               "niter": null,
               "augment": false,
               "tile_overlap": 0.1,
-              "bsize": 256,
               "verbose": false
             },
             "title": "Advanced Parameters",

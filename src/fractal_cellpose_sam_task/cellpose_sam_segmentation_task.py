@@ -16,8 +16,10 @@ from pydantic import Field, validate_call
 
 from fractal_cellpose_sam_task.utils import (
     AdvancedCellposeParameters,
+    AnyCellposeModel,
     AnyCreateRoiTableModel,
     CellposeChannels,
+    CpsamModel,
     CreateMaskingRoiTable,
     SkipCreateMaskingRoiTable,
 )
@@ -162,8 +164,8 @@ def cellpose_sam_segmentation_task(
     level_path: str | None = None,
     # Iteration parameters
     iterator_configuration: IteratorConfig | None = None,
-    custom_model: str | None = None,
     # Cellpose parameters
+    model: AnyCellposeModel = Field(default_factory=CpsamModel),  # noqa: B008
     advanced_parameters: AdvancedCellposeParameters = Field(  # noqa: B008
         default_factory=AdvancedCellposeParameters
     ),
@@ -193,8 +195,8 @@ def cellpose_sam_segmentation_task(
         iterator_configuration (IteratorConfig | None): Configuration
             for the segmentation iterator. This can be used to specify masking
             and/or a ROI table.
-        custom_model (str | None): Path to a custom Cellpose model. If not
-            set, the default "cpsam" model will be used.
+        model (AnyCellposeModel): Cellpose model to use: a pretrained
+            Cellpose-SAM model, or a custom model.
         advanced_parameters (AdvancedCellposeParameters): Advanced parameters
             for Cellpose segmentation.
         pre_post_process (SegmentationTransformConfig): Configuration for pre- and
@@ -240,10 +242,7 @@ def cellpose_sam_segmentation_task(
         anisotropy = None
 
     # Initialize Cellpose model
-    if custom_model is None:
-        custom_model = "cpsam"
-
-    model = models.CellposeModel(gpu=core.use_gpu(), pretrained_model=custom_model)
+    cellpose_model = models.CellposeModel(gpu=core.use_gpu(), **model.to_init_kwargs())
 
     if advanced_parameters.verbose:
         logging.getLogger("cellpose").setLevel(logging.INFO)
@@ -269,7 +268,7 @@ def cellpose_sam_segmentation_task(
     # Run the core segmentation loop
     compute_segmentation(
         segmentation_func=lambda x: segmentation_function(
-            image_data=x, model=model, **cellpose_kwargs
+            image_data=x, model=cellpose_model, **cellpose_kwargs
         ),
         iterator=iterator,
     )
