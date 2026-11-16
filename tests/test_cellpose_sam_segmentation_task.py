@@ -23,7 +23,9 @@ from fractal_cellpose_sam_task.utils import (
     CellposeChannels,
     CreateMaskingRoiTable,
     CustomNorm,
+    Segment3D,
     SkipCreateMaskingRoiTable,
+    StitchPlanes,
 )
 
 # Keep a reference to the real class before any test monkeypatches it, so that
@@ -403,6 +405,32 @@ def test_masking_roi_table_creation(uses_real_model, tmp_path: Path):
         ]
     else:
         assert len(table.rois()) >= 1
+
+
+@pytest.mark.parametrize(
+    "segmentation_3d",
+    [
+        pytest.param(Segment3D(), marks=pytest.mark.cellpose_mock),
+        pytest.param(StitchPlanes(), marks=pytest.mark.real_model),
+    ],
+)
+def test_segmentation_3d_modes(segmentation_3d, tmp_path: Path):
+    """Segment a Z-stack with each 3D mode (3D is mocked, as it is slow on CPU)."""
+    test_data_path = tmp_path / "data.zarr"
+    ome_zarr = create_synthetic_ome_zarr(
+        store=test_data_path,
+        shape=(3, 64, 64),
+        channels_meta=["DAPI_0"],
+        overwrite=False,
+        axes_names="zyx",
+    )
+    cellpose_sam_segmentation_task(
+        zarr_url=str(test_data_path),
+        channels=CellposeChannels(mode="label", identifiers=["DAPI_0"]),
+        advanced_parameters=AdvancedCellposeParameters(segmentation_3d=segmentation_3d),
+    )
+
+    assert "DAPI_0_segmented" in ome_zarr.list_labels()
 
 
 @pytest.mark.cellpose_mock(mock_cls=MockCellposeModelWithEmptyFrames)

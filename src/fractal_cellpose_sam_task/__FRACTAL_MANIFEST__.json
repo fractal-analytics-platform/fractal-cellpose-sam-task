@@ -26,6 +26,30 @@
           "AdvancedCellposeParameters": {
             "description": "Advanced Cellpose Model Parameters.",
             "properties": {
+              "segmentation_3d": {
+                "default": {
+                  "mode": "3D",
+                  "anisotropy": null,
+                  "flow3D_smooth": 0
+                },
+                "description": "How to segment 3D images: in 3D, or by segmenting each Z-plane and stitching the\nmasks. Ignored for 2D images.",
+                "discriminator": {
+                  "mapping": {
+                    "3D": "#/$defs/Segment3D",
+                    "Stitch 2D planes": "#/$defs/StitchPlanes"
+                  },
+                  "propertyName": "mode"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/Segment3D"
+                  },
+                  {
+                    "$ref": "#/$defs/StitchPlanes"
+                  }
+                ],
+                "title": "Segmentation 3D"
+              },
               "normalization": {
                 "default": {
                   "mode": "default"
@@ -85,7 +109,7 @@
               },
               "flow_threshold": {
                 "default": 0.4,
-                "description": "Flow error threshold (all cells with errors below threshold are kept)\n(not used for 3D).",
+                "description": "Flow error threshold (all cells with errors below threshold are kept)\n(not used for \"3D\" segmentation of 3D images).",
                 "title": "Flow Threshold",
                 "type": "number"
               },
@@ -93,37 +117,6 @@
                 "default": 0.0,
                 "description": "All pixels with value above threshold kept for masks, decrease to find more and\nlarger masks.",
                 "title": "Cellprob Threshold",
-                "type": "number"
-              },
-              "flow3D_smooth": {
-                "default": 0,
-                "description": "If do_3D and flow3D_smooth>0, smooth flows with gaussian filter of this stddev.",
-                "title": "Flow3D Smooth",
-                "type": "integer"
-              },
-              "anisotropy": {
-                "anyOf": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "description": "For 3D segmentation, rescaling factor (e.g. set to 2.0 if Z is sampled half as\ndense as X or Y).",
-                "title": "Anisotropy"
-              },
-              "do_3D": {
-                "default": true,
-                "description": "Whether to perform 3D segmentation. If set to False for a 3D image, the image will\nbe segmented by XY planes independently and then stitched together in 3D using the\nstitch_threshold parameter. If set to True for a 2D image, this will be ignored.",
-                "title": "Do 3D",
-                "type": "boolean"
-              },
-              "stitch_threshold": {
-                "default": 0.0,
-                "description": "If stitch_threshold>0.0 and not do_3D, masks are stitched in 3D to return volume\nsegmentation.",
-                "title": "Stitch Threshold",
                 "type": "number"
               },
               "min_size": {
@@ -632,6 +625,39 @@
             "title": "NoNorm",
             "type": "object"
           },
+          "Segment3D": {
+            "description": "Segment 3D images in 3D.",
+            "properties": {
+              "mode": {
+                "const": "3D",
+                "default": "3D",
+                "description": "Run Cellpose in 3D.",
+                "title": "Mode",
+                "type": "string"
+              },
+              "anisotropy": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Rescaling factor for Z (e.g. 2.0 if Z is sampled half as dense as X or Y). If not\nset, it is computed from the pixel sizes.",
+                "title": "Anisotropy"
+              },
+              "flow3D_smooth": {
+                "default": 0,
+                "description": "If greater than 0, smooth flows with a gaussian filter of this stddev.",
+                "title": "Flow3D Smooth",
+                "type": "integer"
+              }
+            },
+            "title": "Segment3D",
+            "type": "object"
+          },
           "SegmentationTransformConfig": {
             "description": "Configuration for pre- and post-processing steps.",
             "properties": {
@@ -721,6 +747,28 @@
             },
             "title": "SkipCreateMaskingRoiTable",
             "type": "object"
+          },
+          "StitchPlanes": {
+            "description": "Segment each Z-plane in 2D and stitch the masks in 3D.",
+            "properties": {
+              "mode": {
+                "const": "Stitch 2D planes",
+                "default": "Stitch 2D planes",
+                "description": "Segment Z-planes independently and stitch the masks.",
+                "title": "Mode",
+                "type": "string"
+              },
+              "stitch_threshold": {
+                "default": 0.25,
+                "description": "Minimum IoU between masks in consecutive planes to stitch them together.",
+                "exclusiveMinimum": 0.0,
+                "maximum": 1.0,
+                "title": "Stitch Threshold",
+                "type": "number"
+              }
+            },
+            "title": "StitchPlanes",
+            "type": "object"
           }
         },
         "additionalProperties": false,
@@ -793,6 +841,11 @@
           "advanced_parameters": {
             "$ref": "#/$defs/AdvancedCellposeParameters",
             "default": {
+              "segmentation_3d": {
+                "anisotropy": null,
+                "flow3D_smooth": 0,
+                "mode": "3D"
+              },
               "normalization": {
                 "mode": "default"
               },
@@ -802,10 +855,6 @@
               "diameter": null,
               "flow_threshold": 0.4,
               "cellprob_threshold": 0.0,
-              "flow3D_smooth": 0,
-              "anisotropy": null,
-              "do_3D": true,
-              "stitch_threshold": 0.0,
               "min_size": 15,
               "max_size_fraction": 0.4,
               "niter": null,

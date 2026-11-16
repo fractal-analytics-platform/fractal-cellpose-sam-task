@@ -21,6 +21,7 @@ from fractal_cellpose_sam_task.utils import (
     CellposeChannels,
     CpsamModel,
     CreateMaskingRoiTable,
+    Segment3D,
     SkipCreateMaskingRoiTable,
 )
 
@@ -39,24 +40,22 @@ def _setup_cellpose_kwargs(
     whether an anisotropy factor has been calculated.
     """
     kwargs = cellpose_parameters.to_eval_kwargs()
-    kwargs["z_axis"] = 1 if is_3d else None
-    if not is_3d:
+    kwargs["channel_axis"] = 0
+    if is_3d:
+        segmentation_3d = cellpose_parameters.segmentation_3d
+        kwargs["z_axis"] = 1
+        kwargs.update(segmentation_3d.to_eval_kwargs())
+        if (
+            isinstance(segmentation_3d, Segment3D)
+            and segmentation_3d.anisotropy is None
+        ):
+            kwargs["anisotropy"] = calculated_anisotropy
+    else:
         # For 2D segmentation we need to set do_3D=False
         # to avoid having to add a single Z plane dimension to the
         # input and output
+        kwargs["z_axis"] = None
         kwargs["do_3D"] = False
-    if (
-        is_3d
-        and not cellpose_parameters.do_3D
-        and cellpose_parameters.stitch_threshold == 0.0
-    ):
-        raise ValueError(
-            "For 3D images either do_3D must be set to True or "
-            "if do_3D is False, stitch_threshold must be greater than 0.0."
-        )
-    kwargs["channel_axis"] = 0
-    if cellpose_parameters.anisotropy is None:
-        kwargs["anisotropy"] = calculated_anisotropy
 
     if cellpose_parameters.verbose:
         logger.info("Cellpose evaluation parameters:")
