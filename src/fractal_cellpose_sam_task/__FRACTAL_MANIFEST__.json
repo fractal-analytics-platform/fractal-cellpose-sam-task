@@ -88,12 +88,6 @@
                 "title": "Resample",
                 "type": "boolean"
               },
-              "invert": {
-                "default": false,
-                "description": "Invert image pixel intensity before running network. Only used with DefaultNorm:\nwith CustomNorm, use its own `invert` instead; with NoNorm, no inversion happens.",
-                "title": "Invert",
-                "type": "boolean"
-              },
               "diameter": {
                 "anyOf": [
                   {
@@ -393,7 +387,7 @@
               "mode": {
                 "const": "default",
                 "default": "default",
-                "description": "Use Cellpose default normalization (0-1 rescaling and 1%-99% percentile clipping).\nAll other parameters are ignored.",
+                "description": "Use Cellpose default normalization (0-1 rescaling and 1%-99% percentile clipping).\nAll other parameters are ignored. To invert the image, use custom normalization.",
                 "title": "Mode",
                 "type": "string"
               }
@@ -851,7 +845,6 @@
               },
               "batch_size": 8,
               "resample": true,
-              "invert": false,
               "diameter": null,
               "flow_threshold": 0.4,
               "cellprob_threshold": 0.0,

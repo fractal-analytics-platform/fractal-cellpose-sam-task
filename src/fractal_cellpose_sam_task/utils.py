@@ -18,7 +18,7 @@ class DefaultNorm(BaseModel):
     mode: Literal["default"] = "default"
     """
     Use Cellpose default normalization (0-1 rescaling and 1%-99% percentile clipping).
-    All other parameters are ignored.
+    All other parameters are ignored. To invert the image, use custom normalization.
     """
 
     def to_eval_kwargs(self) -> bool:
@@ -248,11 +248,6 @@ class AdvancedCellposeParameters(BaseModel):
     Run dynamics at original image size (will be slower but create more accurate
     boundaries).
     """
-    invert: bool = False
-    """
-    Invert image pixel intensity before running network. Only used with DefaultNorm:
-    with CustomNorm, use its own `invert` instead; with NoNorm, no inversion happens.
-    """
     diameter: float | None = None
     """Diameter used to rescale the image to 30 pix cell diameter."""
     flow_threshold: float = 0.4
@@ -287,10 +282,6 @@ class AdvancedCellposeParameters(BaseModel):
         Returns:
             dict: Dictionary of keyword arguments for cellpose.eval.
         """
-        normalize = self.normalization.to_eval_kwargs()
-        if not isinstance(self.normalization, CustomNorm):
-            # Cellpose >=4.2 only accepts `invert` inside the `normalize` dict
-            normalize = {"normalize": normalize, "invert": self.invert}
         kwargs = {
             "batch_size": self.batch_size,
             "resample": self.resample,
@@ -302,7 +293,7 @@ class AdvancedCellposeParameters(BaseModel):
             "niter": self.niter,
             "augment": self.augment,
             "tile_overlap": self.tile_overlap,
-            "normalize": normalize,
+            "normalize": self.normalization.to_eval_kwargs(),
         }
         return kwargs
 
