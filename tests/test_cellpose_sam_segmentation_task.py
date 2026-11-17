@@ -399,8 +399,8 @@ def test_masking_roi_table_creation(uses_real_model, tmp_path: Path):
         assert roi.label == 1
         assert roi.space == "world"
         assert [(s.axis_name, s.start, s.end) for s in roi.slices] == [
-            ("x", 0.0, 3.9000000000000004),
-            ("y", 0.0, 8.125),
+            ("x", 0.0, 3.575),
+            ("y", 0.0, 8.450000000000001),
             ("z", 0.0, 1.0),
         ]
     else:

@@ -117,9 +117,9 @@ AnyNormModel = Annotated[DefaultNorm | NoNorm | CustomNorm, Field(discriminator=
 class CpsamModel(BaseModel):
     """Pretrained Cellpose-SAM model."""
 
-    mode: Literal["cpsam"] = "cpsam"
+    mode: Literal["cpsam pretrained"] = "cpsam pretrained"
     """Use a pretrained Cellpose-SAM model."""
-    name: Literal["cpsam", "cpsam_v2"] = "cpsam"
+    name: Literal["cpsam", "cpsam_v2"] = "cpsam_v2"
     """Name of the pretrained model."""
 
     def to_init_kwargs(self) -> dict:

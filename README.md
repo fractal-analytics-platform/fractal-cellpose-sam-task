@@ -15,8 +15,8 @@ A [Fractal](https://fractal-analytics-platform.github.io/) task to segment OME-Z
 ## Models
 | Model setting | Model |
 |---|---|
-| Pretrained, `cpsam` (default) | The original Cellpose-SAM model |
-| Pretrained, `cpsam_v2` | Updated Cellpose-SAM, with fewer spurious masks in low-contrast regions. |
+| Pretrained, `cpsam` | The original Cellpose-SAM model |
+| Pretrained, `cpsam_v2` (default) | Updated Cellpose-SAM, with fewer spurious masks in low-contrast regions. |
 | Custom | Cellpose weights from a file path, e.g. a model fine-tuned from `cpsam` |
 
 Cellpose downloads pretrained weights from [Hugging Face](https://huggingface.co/mouseland/cellpose-sam) the first time a model is used. They are stored in `~/.cellpose/models`, or in the folder set by the `CELLPOSE_LOCAL_MODELS_PATH` environment variable.

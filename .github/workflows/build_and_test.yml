@@ -67,7 +67,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cellpose/models
-          key: cellpose-models-cpsam
+          key: cellpose-models-cpsam_v2
 
       - name: Install PyTorch CPU
         run: python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu

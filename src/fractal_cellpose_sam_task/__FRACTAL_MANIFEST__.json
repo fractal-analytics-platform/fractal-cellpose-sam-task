@@ -201,14 +201,14 @@
             "description": "Pretrained Cellpose-SAM model.",
             "properties": {
               "mode": {
-                "const": "cpsam",
-                "default": "cpsam",
+                "const": "cpsam pretrained",
+                "default": "cpsam pretrained",
                 "description": "Use a pretrained Cellpose-SAM model.",
                 "title": "Mode",
                 "type": "string"
               },
               "name": {
-                "default": "cpsam",
+                "default": "cpsam_v2",
                 "description": "Name of the pretrained model.",
                 "enum": [
                   "cpsam",
@@ -811,12 +811,12 @@
           },
           "model": {
             "default": {
-              "mode": "cpsam",
-              "name": "cpsam"
+              "mode": "cpsam pretrained",
+              "name": "cpsam_v2"
             },
             "discriminator": {
               "mapping": {
-                "cpsam": "#/$defs/CpsamModel",
+                "cpsam pretrained": "#/$defs/CpsamModel",
                 "custom": "#/$defs/CustomModel"
               },
               "propertyName": "mode"
