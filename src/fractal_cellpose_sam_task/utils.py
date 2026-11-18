@@ -18,7 +18,7 @@ class DefaultNorm(BaseModel):
     mode: Literal["default"] = "default"
     """
     Use Cellpose default normalization (0-1 rescaling and 1%-99% percentile clipping).
-    All other parameters are ignored.
+    All other parameters are ignored. To invert the image, use custom normalization.
     """
 
     def to_eval_kwargs(self) -> bool:
@@ -114,6 +114,35 @@ class CustomNorm(BaseModel):
 AnyNormModel = Annotated[DefaultNorm | NoNorm | CustomNorm, Field(discriminator="mode")]
 
 
+class CpsamModel(BaseModel):
+    """Pretrained Cellpose-SAM model."""
+
+    mode: Literal["cpsam pretrained"] = "cpsam pretrained"
+    """Use a pretrained Cellpose-SAM model."""
+    name: Literal["cpsam", "cpsam_v2"] = "cpsam_v2"
+    """Name of the pretrained model."""
+
+    def to_init_kwargs(self) -> dict:
+        """Keyword arguments for cellpose.models.CellposeModel."""
+        return {"pretrained_model": self.name}
+
+
+class CustomModel(BaseModel):
+    """Custom Cellpose model."""
+
+    mode: Literal["custom"] = "custom"
+    """Use a custom Cellpose model."""
+    path: str
+    """Path to the model weights."""
+
+    def to_init_kwargs(self) -> dict:
+        """Keyword arguments for cellpose.models.CellposeModel."""
+        return {"pretrained_model": self.path}
+
+
+AnyCellposeModel = Annotated[CpsamModel | CustomModel, Field(discriminator="mode")]
+
+
 class CreateMaskingRoiTable(BaseModel):
     """Create Masking ROI Table Configuration."""
 
@@ -155,9 +184,54 @@ AnyCreateRoiTableModel = Annotated[
 ]
 
 
+class Segment3D(BaseModel):
+    """Segment 3D images in 3D."""
+
+    mode: Literal["3D"] = "3D"
+    """Run Cellpose in 3D."""
+    anisotropy: float | None = None
+    """
+    Rescaling factor for Z (e.g. 2.0 if Z is sampled half as dense as X or Y). If not
+    set, it is computed from the pixel sizes.
+    """
+    flow3D_smooth: int = 0
+    """If greater than 0, smooth flows with a gaussian filter of this stddev."""
+
+    def to_eval_kwargs(self) -> dict:
+        """Keyword arguments for cellpose.eval."""
+        return {
+            "do_3D": True,
+            "anisotropy": self.anisotropy,
+            "flow3D_smooth": self.flow3D_smooth,
+        }
+
+
+class StitchPlanes(BaseModel):
+    """Segment each Z-plane in 2D and stitch the masks in 3D."""
+
+    mode: Literal["Stitch 2D planes"] = "Stitch 2D planes"
+    """Segment Z-planes independently and stitch the masks."""
+    stitch_threshold: float = Field(default=0.25, gt=0.0, le=1.0)
+    """Minimum IoU between masks in consecutive planes to stitch them together."""
+
+    def to_eval_kwargs(self) -> dict:
+        """Keyword arguments for cellpose.eval."""
+        return {"do_3D": False, "stitch_threshold": self.stitch_threshold}
+
+
+AnySegmentation3DModel = Annotated[
+    Segment3D | StitchPlanes, Field(discriminator="mode")
+]
+
+
 class AdvancedCellposeParameters(BaseModel):
     """Advanced Cellpose Model Parameters."""
 
+    segmentation_3d: AnySegmentation3DModel = Segment3D()
+    """
+    How to segment 3D images: in 3D, or by segmenting each Z-plane and stitching the
+    masks. Ignored for 2D images.
+    """
     normalization: AnyNormModel = DefaultNorm()
     """
     Normalization model to use. Options are DefaultNorm (use Cellpose default
@@ -174,42 +248,17 @@ class AdvancedCellposeParameters(BaseModel):
     Run dynamics at original image size (will be slower but create more accurate
     boundaries).
     """
-    invert: bool = False
-    """
-    Invert image pixel intensity before running network. Only used with DefaultNorm:
-    with CustomNorm, use its own `invert` instead; with NoNorm, no inversion happens.
-    """
     diameter: float | None = None
     """Diameter used to rescale the image to 30 pix cell diameter."""
     flow_threshold: float = 0.4
     """
     Flow error threshold (all cells with errors below threshold are kept)
-    (not used for 3D).
+    (not used for "3D" segmentation of 3D images).
     """
     cellprob_threshold: float = 0.0
     """
     All pixels with value above threshold kept for masks, decrease to find more and
     larger masks.
-    """
-    flow3D_smooth: int = 0
-    """
-    If do_3D and flow3D_smooth>0, smooth flows with gaussian filter of this stddev.
-    """
-    anisotropy: float | None = None
-    """
-    For 3D segmentation, rescaling factor (e.g. set to 2.0 if Z is sampled half as
-    dense as X or Y).
-    """
-    do_3D: bool = True
-    """
-    Whether to perform 3D segmentation. If set to False for a 3D image, the image will
-    be segmented by XY planes independently and then stitched together in 3D using the
-    stitch_threshold parameter. If set to True for a 2D image, this will be ignored.
-    """
-    stitch_threshold: float = 0.0
-    """
-    If stitch_threshold>0.0 and not do_3D, masks are stitched in 3D to return volume
-    segmentation.
     """
     min_size: int = 15
     """All ROIs below this size, in pixels, will be discarded."""
@@ -224,8 +273,6 @@ class AdvancedCellposeParameters(BaseModel):
     """Tiles image with overlapping tiles and flips overlapped regions to augment."""
     tile_overlap: float = 0.1
     """Fraction of overlap of tiles when computing flows."""
-    bsize: int = 256
-    """Block size for tiles, recommended to keep at 224, like in training."""
     verbose: bool = False
     """Whether cellpose logs should be active."""
 
@@ -235,27 +282,18 @@ class AdvancedCellposeParameters(BaseModel):
         Returns:
             dict: Dictionary of keyword arguments for cellpose.eval.
         """
-        normalize = self.normalization.to_eval_kwargs()
-        if not isinstance(self.normalization, CustomNorm):
-            # Cellpose >=4.2 only accepts `invert` inside the `normalize` dict
-            normalize = {"normalize": normalize, "invert": self.invert}
         kwargs = {
             "batch_size": self.batch_size,
             "resample": self.resample,
             "diameter": self.diameter,
             "flow_threshold": self.flow_threshold,
             "cellprob_threshold": self.cellprob_threshold,
-            "flow3D_smooth": self.flow3D_smooth,
-            "anisotropy": self.anisotropy,
-            "do_3D": self.do_3D,
-            "stitch_threshold": self.stitch_threshold,
             "min_size": self.min_size,
             "max_size_fraction": self.max_size_fraction,
             "niter": self.niter,
             "augment": self.augment,
             "tile_overlap": self.tile_overlap,
-            "bsize": self.bsize,
-            "normalize": normalize,
+            "normalize": self.normalization.to_eval_kwargs(),
         }
         return kwargs
 
